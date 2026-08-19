@@ -12,7 +12,8 @@ class Settings(BaseSettings):
     )
 
     database_url: str
-    jwt_secret: str
+    jwt_secret_key: str
+    access_token_expire_minutes: int = 30
     environment: str = "development"
     cors_origins: str = "http://localhost:3000"
 
