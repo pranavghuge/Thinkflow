@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey, CheckConstraint, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime,JSON, ForeignKey, CheckConstraint, UniqueConstraint
 from sqlalchemy.sql import func
 from app.database import Base
 
@@ -23,19 +23,69 @@ class ApiKey(Base):
 
 class Problem(Base):
     __tablename__ = "problems"
+
     id = Column(String(100), primary_key=True)
+
     title = Column(String(255), nullable=False)
-    slug = Column(String(255), unique=True, index=True, nullable=False)
+
+    slug = Column(
+        String(255),
+        unique=True,
+        index=True,
+        nullable=False,
+    )
+
     statement = Column(Text, nullable=False)
-    difficulty = Column(String(50), index=True, nullable=False)
-    pattern = Column(String(100))
-    category = Column(String(100), index=True, nullable=False)
-    constraints = Column(Text) # Or JSON depending on type configuration
-    examples = Column(Text)
+
+    category = Column(
+        String(100),
+        index=True,
+        nullable=False,
+    )
+
+    pattern = Column(
+        String(100),
+        index=True,
+        nullable=False,
+    )
+
+    difficulty = Column(
+        String(50),
+        index=True,
+        nullable=False,
+    )
+
+    recognition_minutes = Column(
+        Integer,
+        nullable=False,
+    )
+
+    examples = Column(
+        JSON,
+        nullable=False,
+    )
+
+    constraints = Column(
+        JSON,
+        nullable=False,
+    )
+
     time_complexity = Column(String(100))
+
     space_complexity = Column(String(100))
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
 
 class ProblemHint(Base):
     __tablename__ = "problem_hints"

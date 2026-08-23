@@ -4,10 +4,18 @@ from sqlalchemy.orm import Session
 
 from .database import get_db
 from .models import User
-from .schemas import SignupRequest, LoginRequest, UserResponse
+from .schemas import (
+    SignupRequest,
+    LoginRequest,
+    UserResponse,
+    TokenResponse,
+    RefreshRequest,
+)
 from .security import (
     create_access_token,
+    create_refresh_token,
     decode_access_token,
+    decode_refresh_token,
     hash_password,
     verify_password,
 )
@@ -15,7 +23,7 @@ from .security import (
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
-bearer_scheme = HTTPBearer()
+bearer_scheme = HTTPBearer(auto_error=False)
 
 
 @router.post("/signup", response_model=UserResponse)
@@ -53,7 +61,7 @@ def signup(
     return user
 
 
-@router.post("/login")
+@router.post("/login", response_model=TokenResponse)
 def login(
     data: LoginRequest,
     db: Session = Depends(get_db)
@@ -65,7 +73,7 @@ def login(
         .first()
     )
 
-    # Do not reveal whether email exists
+   
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -81,19 +89,60 @@ def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Create JWT access token
+    
     access_token = create_access_token(user.id)
+
+    
+    refresh_token = create_refresh_token(user.id)
 
     return {
         "access_token": access_token,
+        "refresh_token": refresh_token,
         "token_type": "bearer",
     }
 
 
+@router.post("/refresh", response_model=TokenResponse)
+def refresh(
+    data: RefreshRequest,
+    db: Session = Depends(get_db)
+):
+    try:
+        user_id = decode_refresh_token(data.refresh_token)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    user = db.query(User).filter(User.id == user_id).first()
+
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    
+    return {
+        "access_token": create_access_token(user.id),
+        "refresh_token": create_refresh_token(user.id),
+        "token_type": "bearer",
+    }
+
 def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     db: Session = Depends(get_db),
 ):
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     token = credentials.credentials
 
     try:
@@ -105,7 +154,6 @@ def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Find user represented by the token
     user = db.query(User).filter(User.id == user_id).first()
 
     if user is None:
