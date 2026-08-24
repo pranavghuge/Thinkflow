@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session as DBSession
 
 from .auth import get_current_user
 from .database import get_db
-from .models import User, Session as SessionModel, Problem, Approach, ProblemHint
+from .models import User, Session as SessionModel, Problem, Approach, ProblemHint,SessionEvent
 from .schemas import (
     CreateSessionRequest,
     RecognitionRequest,
@@ -47,6 +47,21 @@ def get_owned_session(
 
     return session
 
+def log_event(
+    db: DBSession,
+    session: SessionModel,
+    event_type: str,
+    event_data: dict | None = None,
+):
+    event = SessionEvent(
+        session_id=session.id,
+        user_id=session.user_id,
+        event_type=event_type,
+        event_data=event_data,
+    )
+
+    db.add(event)
+
 
 @router.post("", response_model=SessionDetailResponse, status_code=status.HTTP_201_CREATED)
 def create_session(
@@ -70,6 +85,16 @@ def create_session(
     )
 
     db.add(session)
+
+    log_event(
+        db,
+        session,
+        "session_created",
+        {
+            "problem_id": problem.id,
+        },
+    )
+
     db.commit()
     db.refresh(session)
 
@@ -113,9 +138,25 @@ def update_recognition(
         # Ground-truth comparison for curated problems. Real Pattern
         # Detector AI service replaces this equality check later —
         # see mvp-scope.md, Deliberate Cuts (AI quality risk).
-        session.pattern_match = (data.claimed_pattern == problem.pattern)
+        session.pattern_match = (
+        data.claimed_pattern.strip().casefold()
+        == problem.pattern.strip().casefold()
+        )
 
     session.status = "recognition_complete"
+
+    log_event(
+        db,
+        session,
+        "recognition_submitted",
+        {
+            "outcome": data.outcome,
+            "claimed_pattern": data.claimed_pattern,
+            "detected_pattern": problem.pattern,
+            "pattern_match": session.pattern_match,
+            "recognition_time": elapsed_seconds,
+        },
+    )
 
     db.commit()
     db.refresh(session)
@@ -158,6 +199,15 @@ def submit_approach(
     # Actual rubric evaluation (Approach Evaluation Service) is wired
     # in a later step — this only persists the attempt for now.
 
+    log_event(
+        db,
+        session,
+        "approach_submitted",
+        {
+            "attempt_number": existing_attempts + 1,
+        },
+    )
+
     db.commit()
     db.refresh(session)
 
@@ -193,6 +243,16 @@ def request_hint(
         )
 
     session.current_hint_level = next_level
+
+    log_event(
+        db,
+        session,
+        "hint_requested",
+        {
+            "hint_level": next_level,
+        },
+    )
+
     db.commit()
     db.refresh(session)
 

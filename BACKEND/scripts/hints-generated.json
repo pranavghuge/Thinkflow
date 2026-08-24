@@ -1,0 +1,684 @@
+{
+  "ah": [
+    {
+      "level": 1,
+      "hint_text": "Consider how looking at relationships between pairs of numbers can simplify your search."
+    },
+    {
+      "level": 2,
+      "hint_text": "For every number you examine, ask yourself what specific other number you would need to reach your target."
+    },
+    {
+      "level": 3,
+      "hint_text": "A hash map is the ideal tool for storing and retrieving values instantly."
+    },
+    {
+      "level": 4,
+      "hint_text": "Scan through the array once, checking if your needed counterpart has already been saved before recording the current number."
+    },
+    {
+      "level": 5,
+      "hint_text": "Initialize an empty map, iterate through the array to compute the difference between the target and the current element, check if that difference exists in your map, and if not, store the current element and its index."
+    }
+  ],
+  "ah1": [
+    {
+      "level": 1,
+      "hint_text": "Consider how you can track information efficiently as you process the elements one by one."
+    },
+    {
+      "level": 2,
+      "hint_text": "The core insight is that you only need to know if a current value has appeared anywhere earlier in the sequence."
+    },
+    {
+      "level": 3,
+      "hint_text": "A hash set is the ideal data structure for performing constant-time membership checks."
+    },
+    {
+      "level": 4,
+      "hint_text": "Iterate through the array and check if the current element is already stored before adding it to your memory collection."
+    },
+    {
+      "level": 5,
+      "hint_text": "Loop through each number in the array, check if it exists in a hash set, return true if it does, and otherwise insert it into the set."
+    }
+  ],
+  "ah2": [
+    {
+      "level": 1,
+      "hint_text": "Think about sorting or categorizing."
+    },
+    {
+      "level": 2,
+      "hint_text": "Anagrams share the exact same set of characters regardless of their order."
+    },
+    {
+      "level": 3,
+      "hint_text": "A hash map or dictionary lets you group items efficiently using a key."
+    },
+    {
+      "level": 4,
+      "hint_text": "Normalize each string into a canonical form to use as a key, then group matching original strings together under that key."
+    },
+    {
+      "level": 5,
+      "hint_text": "Iterate through the array, sort the characters of each string to use as the dictionary key, append the original string to the corresponding list, and finally return all the grouped lists."
+    }
+  ],
+  "ah3": [
+    {
+      "level": 1,
+      "hint_text": "Think about how you can approach finding sequences in an unordered collection without sorting the entire thing."
+    },
+    {
+      "level": 2,
+      "hint_text": "Consider that the start of any consecutive sequence is a number that has no predecessor immediately smaller than it in the input."
+    },
+    {
+      "level": 3,
+      "hint_text": "A hash set allows you to check for the existence of any number in constant time."
+    },
+    {
+      "level": 4,
+      "hint_text": "Load all numbers into the set, then iterate through them to find numbers that start a sequence by checking if their predecessor is missing."
+    },
+    {
+      "level": 5,
+      "hint_text": "For each number in your set, only begin counting a sequence if the number minus one is absent, then repeatedly check for the presence of number plus one to measure the sequence length."
+    }
+  ],
+  "ah4": [
+    {
+      "level": 1,
+      "hint_text": "Consider how you can keep track of how often each item appears before deciding which ones to return."
+    },
+    {
+      "level": 2,
+      "hint_text": "To find the most frequent items, you need to associate every unique value with its exact count of occurrences."
+    },
+    {
+      "level": 3,
+      "hint_text": "A hash map or frequency table is ideal for counting occurrences, and a bucket-based approach can help group elements by their frequency."
+    },
+    {
+      "level": 4,
+      "hint_text": "Count the occurrences of each number by scanning the input, then group the numbers into buckets where the index represents the frequency."
+    },
+    {
+      "level": 5,
+      "hint_text": "Build a frequency map of the array, then populate an array of lists where each index corresponds to a frequency count, and finally collect elements from the highest frequency buckets until you have k elements."
+    }
+  ],
+  "bs1": [
+    {
+      "level": 1,
+      "hint_text": "Consider how you can repeatedly narrow down a sorted search space by half rather than checking elements one by one."
+    },
+    {
+      "level": 2,
+      "hint_text": "By looking at the middle element of your current range, you can instantly eliminate half of the remaining numbers without inspecting them."
+    },
+    {
+      "level": 3,
+      "hint_text": "You will need to maintain two boundary pointers to keep track of your active search window."
+    },
+    {
+      "level": 4,
+      "hint_text": "Initialize pointers at the start and end of the array, calculate the midpoint, and move your pointers inward depending on whether the middle value is smaller or larger than your target."
+    },
+    {
+      "level": 5,
+      "hint_text": "Keep a loop running while your left pointer is less than or equal to your right pointer, update the middle index on each iteration, and return the index immediately if a match is found before adjusting your bounds."
+    }
+  ],
+  "bs2": [
+    {
+      "level": 1,
+      "hint_text": "Consider using binary search to achieve the required logarithmic time complexity."
+    },
+    {
+      "level": 2,
+      "hint_text": "Notice that even when an array is rotated, dividing it in half will always leave at least one of the two halves completely sorted."
+    },
+    {
+      "level": 3,
+      "hint_text": "You do not need any additional data structures; pointers tracking your search boundaries are sufficient."
+    },
+    {
+      "level": 4,
+      "hint_text": "Repeatedly find the middle of your current range, check if it matches your target, and determine which half of the array remains sorted to decide where to search next."
+    },
+    {
+      "level": 5,
+      "hint_text": "Maintain left and right pointers, compute the middle index, check if the target is at the middle, and then figure out if the left half or right half is normally sorted so you can narrow your search window accordingly."
+    }
+  ],
+  "bs3": [
+    {
+      "level": 1,
+      "hint_text": "Think about how you can achieve logarithmic time complexity when searching through a sequence."
+    },
+    {
+      "level": 2,
+      "hint_text": "Notice that even though the array is rotated, dividing it in half will always leave at least one portion completely sorted."
+    },
+    {
+      "level": 3,
+      "hint_text": "You need two boundary markers to track your search space and a middle reference point to evaluate the halves."
+    },
+    {
+      "level": 4,
+      "hint_text": "Compare the middle value to your right boundary to determine which half remains sorted, then discard the half that cannot contain the minimum."
+    },
+    {
+      "level": 5,
+      "hint_text": "Maintain left and right pointers, find the middle index, and if the middle element is greater than the right element, shift your left pointer past the middle; otherwise, bring your right pointer to the middle until the pointers converge on the minimum."
+    }
+  ],
+  "bs4": [
+    {
+      "level": 1,
+      "hint_text": "Consider framing this as a search problem across a contiguous range of possible eating speeds."
+    },
+    {
+      "level": 2,
+      "hint_text": "If you test a specific eating speed, you can easily determine whether it is fast enough to finish on time, and that determines which half of your remaining speed range to discard."
+    },
+    {
+      "level": 3,
+      "hint_text": "You can apply binary search over the monotonic range of possible speeds from one up to the size of the largest pile."
+    },
+    {
+      "level": 4,
+      "hint_text": "Set your search bounds, calculate the middle speed, and write a helper function to sum the total hours required at that speed to see if it fits within the allowed time limit."
+    },
+    {
+      "level": 5,
+      "hint_text": "Initialize your low bound to one and high bound to the maximum pile value, then repeatedly check the midpoint speed, adjusting your boundaries based on whether the total hours consumed are less than or equal to the target hours."
+    }
+  ],
+  "g1": [
+    {
+      "level": 1,
+      "hint_text": "Consider using graph traversal techniques to explore connected components."
+    },
+    {
+      "level": 2,
+      "hint_text": "When you encounter a piece of land, you need a way to visit and mark all connected land cells before continuing your search."
+    },
+    {
+      "level": 3,
+      "hint_text": "You will need a mechanism to keep track of visited cells so you do not count the same land mass multiple times."
+    },
+    {
+      "level": 4,
+      "hint_text": "Scan through every cell in the grid, and whenever you find unvisited land, increment your island counter and trigger a full traversal from that cell to sink all connected land."
+    },
+    {
+      "level": 5,
+      "hint_text": "Iterate with nested loops over the grid rows and columns; upon hitting a '1', start a recursive or iterative depth-first search that flips every connected '1' to '0' to mark it as visited."
+    }
+  ],
+  "g2": [
+    {
+      "level": 1,
+      "hint_text": "Think of this as modeling dependencies where certain tasks must happen before others can begin."
+    },
+    {
+      "level": 2,
+      "hint_text": "Consider what happens if your dependency chain loops back on itself, making completion impossible."
+    },
+    {
+      "level": 3,
+      "hint_text": "Use a directed graph to represent the courses and their prerequisite relationships, along with a structure to track visited states."
+    },
+    {
+      "level": 4,
+      "hint_text": "Build adjacency lists for the dependencies and traverse the graph to detect any cycles during exploration."
+    },
+    {
+      "level": 5,
+      "hint_text": "Track each node's state using three statuses like unvisited, visiting, and visited to catch cycles effectively during a depth-first traversal."
+    }
+  ],
+  "hp1": [
+    {
+      "level": 1,
+      "hint_text": "Consider approaches that maintain a running subset of elements rather than processing the entire collection all at once."
+    },
+    {
+      "level": 2,
+      "hint_text": "You do not need to fully sort the entire array; you only need to keep track of a specific count of the largest values seen so far."
+    },
+    {
+      "level": 3,
+      "hint_text": "A min-heap or priority queue is ideal for keeping track of the k largest elements dynamically."
+    },
+    {
+      "level": 4,
+      "hint_text": "Iterate through the array and push each element into a min-heap, ensuring that whenever the heap size exceeds k, you remove the smallest element."
+    },
+    {
+      "level": 5,
+      "hint_text": "Initialize a priority queue of size k as you loop through the numbers, and after processing all elements, the root of the heap will hold your target value."
+    }
+  ],
+  "hp2": [
+    {
+      "level": 1,
+      "hint_text": "Think about greedy scheduling and frequency-based ordering to manage constraints over time."
+    },
+    {
+      "level": 2,
+      "hint_text": "The most frequent tasks dictate the overall structure of the timeline because they require the largest mandatory cooling gaps."
+    },
+    {
+      "level": 3,
+      "hint_text": "A max heap or priority queue is ideal for dynamically tracking which tasks are available and have the highest remaining counts."
+    },
+    {
+      "level": 4,
+      "hint_text": "Repeatedly extract the most frequent task, simulate its execution across the required cooldown interval, and temporarily hold down remaining tasks in a queue until their wait period expires."
+    },
+    {
+      "level": 5,
+      "hint_text": "Count task frequencies into an array or hash map, load them into a max heap, and in a loop, greedily process up to n plus one tasks per cycle while pushing temporarily delayed tasks into a timestamped queue to re-add when ready."
+    }
+  ],
+  "l1": [
+    {
+      "level": 1,
+      "hint_text": "Think about how pointer manipulation and state management can transform connections between elements."
+    },
+    {
+      "level": 2,
+      "hint_text": "As you walk through the sequence, every node needs to point backward to its predecessor instead of its successor."
+    },
+    {
+      "level": 3,
+      "hint_text": "You will need to track multiple reference points simultaneously so you do not lose your place while breaking and reforming links."
+    },
+    {
+      "level": 4,
+      "hint_text": "Maintain references to your current position, the previous element, and the upcoming element as you step through the sequence."
+    },
+    {
+      "level": 5,
+      "hint_text": "Initialize a previous pointer to null and a current pointer to the head, then iteratively save the next node, redirect current's next pointer to previous, and advance both previous and current."
+    }
+  ],
+  "l2": [
+    {
+      "level": 1,
+      "hint_text": "Think about how traversing a structure at different speeds might reveal if it repeats."
+    },
+    {
+      "level": 2,
+      "hint_text": "If a faster mover traverses a closed loop, it will eventually lap a slower mover."
+    },
+    {
+      "level": 3,
+      "hint_text": "You need two references that traverse the sequence simultaneously at different paces."
+    },
+    {
+      "level": 4,
+      "hint_text": "Advance one reference by a single step and the other by two steps at each iteration, checking if they ever meet."
+    },
+    {
+      "level": 5,
+      "hint_text": "Initialize two pointers at the head, then loop while the faster pointer and its next node are not null, updating the slow pointer by one step and the fast pointer by two until they point to the exact same node or reach the end."
+    }
+  ],
+  "l3": [
+    {
+      "level": 1,
+      "hint_text": "Think about operations where you need to track order of usage and access items efficiently."
+    },
+    {
+      "level": 2,
+      "hint_text": "To achieve constant time operations, you need a way to move elements to the front or back without shifting everything in between."
+    },
+    {
+      "level": 3,
+      "hint_text": "Combine a hash map for fast lookups with a doubly linked list for fast insertions and deletions at any position."
+    },
+    {
+      "level": 4,
+      "hint_text": "Map keys directly to their corresponding nodes in the list so you can find, update, or remove them in constant time."
+    },
+    {
+      "level": 5,
+      "hint_text": "Store key-node pairs in your hash map, and manage recency by moving accessed or inserted nodes to the head of the list, evicting from the tail when capacity is exceeded."
+    }
+  ],
+  "sw2": [
+    {
+      "level": 1,
+      "hint_text": "Consider using a sliding window approach to evaluate contiguous segments of the string."
+    },
+    {
+      "level": 2,
+      "hint_text": "Think about how your window should expand and contract when you encounter a repeating character."
+    },
+    {
+      "level": 3,
+      "hint_text": "A hash map or a frequency tracking structure will help you remember where characters were last seen."
+    },
+    {
+      "level": 4,
+      "hint_text": "Iterate through the string with a right boundary to grow the window, and if a duplicate appears, jump the left boundary past its previous occurrence."
+    },
+    {
+      "level": 5,
+      "hint_text": "Keep a mapping of each character to its latest index, update the start of your window to be the maximum of its current position and the stored index plus one, and continuously track the maximum window size."
+    }
+  ],
+  "tp1": [
+    {
+      "level": 1,
+      "hint_text": "Consider approaching this problem using a two-pointer technique."
+    },
+    {
+      "level": 2,
+      "hint_text": "Notice that comparing elements from both ends simultaneously allows you to check symmetry efficiently."
+    },
+    {
+      "level": 3,
+      "hint_text": "You do not need any complex data structures; standard string traversal and character validation methods are sufficient."
+    },
+    {
+      "level": 4,
+      "hint_text": "Initialize one pointer at the start and another at the end of the string, moving them inward while skipping any non-alphanumeric characters and ignoring letter case."
+    },
+    {
+      "level": 5,
+      "hint_text": "Keep moving the left pointer right and the right pointer left as long as they haven't crossed, checking if the lowercase alphanumeric characters at both pointers match at each step and returning false immediately if they do not."
+    }
+  ],
+  "tp2": [
+    {
+      "level": 1,
+      "hint_text": "Consider employing a two pointers approach to efficiently explore pairs within a sorted collection."
+    },
+    {
+      "level": 2,
+      "hint_text": "If you sort the array first, you can use the relative order of elements to dynamically narrow your search range and avoid redundant checks."
+    },
+    {
+      "level": 3,
+      "hint_text": "You will need a sorted array and two boundary indicators that can move inward from opposite ends."
+    },
+    {
+      "level": 4,
+      "hint_text": "Iterate through each number as a fixed anchor, then scan the remaining elements from both ends inward to find combinations that sum to zero while skipping duplicates."
+    },
+    {
+      "level": 5,
+      "hint_text": "Sort the array, loop with an index for the first number, place left and right pointers at the remaining boundaries, and advance them past duplicate values whenever a valid triplet is found."
+    }
+  ],
+  "tp3": [
+    {
+      "level": 1,
+      "hint_text": "Consider approaching this problem using a two-pointers technique."
+    },
+    {
+      "level": 2,
+      "hint_text": "Since the width between the pointers shrinks as they move inward, any future container must be wider to have a chance at holding more water, meaning you always want to discard the shorter line."
+    },
+    {
+      "level": 3,
+      "hint_text": "You do not need any complex data structures here; a couple of index variables will suffice."
+    },
+    {
+      "level": 4,
+      "hint_text": "Start with one pointer at the very beginning and one at the very end of the array, calculate the water they hold, and then move the pointer corresponding to the shorter height inward while keeping track of the maximum water found."
+    },
+    {
+      "level": 5,
+      "hint_text": "Initialize left and right pointers at index zero and the last index respectively, compute the area at each step by multiplying the distance between them by the minimum of their heights, update your maximum area tracker, and advance the pointer that points to the smaller height until the pointers meet."
+    }
+  ],
+  "tr1": [
+    {
+      "level": 1,
+      "hint_text": "Think about how breaking a large problem down into identical smaller subproblems can reveal a natural repetition."
+    },
+    {
+      "level": 2,
+      "hint_text": "If you knew the depth of the left and right branches, how could you combine them to find the overall depth from the root?"
+    },
+    {
+      "level": 3,
+      "hint_text": "Consider how function call stacks or queue-based traversal patterns can help you systematically visit every branch."
+    },
+    {
+      "level": 4,
+      "hint_text": "Traverse down each child branch, compute the depth for each side recursively, and take the maximum of the two before adding one for the current node."
+    },
+    {
+      "level": 5,
+      "hint_text": "Base your function on a condition that returns zero if the node is null; otherwise, return one plus the maximum of the recursive calls on both the left and right children."
+    }
+  ],
+  "tr2": [
+    {
+      "level": 1,
+      "hint_text": "Think about how recursive tree traversal can inspect every node."
+    },
+    {
+      "level": 2,
+      "hint_text": "Remember that a valid BST requires every node to respect a valid range, not just its immediate parent."
+    },
+    {
+      "level": 3,
+      "hint_text": "Use boundary tracking or the property of in-order traversal."
+    },
+    {
+      "level": 4,
+      "hint_text": "Pass down valid minimum and maximum allowable limits to each child as you traverse the tree recursively."
+    },
+    {
+      "level": 5,
+      "hint_text": "Implement a helper function taking the current node along with lower and upper bounds, returning true only if the node value strictly falls within those limits and its subtrees also validate."
+    }
+  ],
+  "tr3": [
+    {
+      "level": 1,
+      "hint_text": "Think about exploring a tree layer by layer rather than diving straight down a single path."
+    },
+    {
+      "level": 2,
+      "hint_text": "To process nodes level by level, you need a way to visit and remember nodes in the exact order they appear horizontally."
+    },
+    {
+      "level": 3,
+      "hint_text": "A standard queue data structure operates on a first-in, first-out basis, which naturally preserves horizontal sequence."
+    },
+    {
+      "level": 4,
+      "hint_text": "Start by placing the root in a queue, then repeatedly remove the front node, record its value, and add its children to the back of the queue."
+    },
+    {
+      "level": 5,
+      "hint_text": "Track the exact count of nodes at the start of each iteration so you can group them into a single level list before moving to the children."
+    }
+  ],
+  "tr4": [
+    {
+      "level": 1,
+      "hint_text": "Consider tree traversal patterns that systematically explore hierarchical relationships."
+    },
+    {
+      "level": 2,
+      "hint_text": "Think about what information a parent node needs to gather from its left and right subtrees to know if both target nodes are present."
+    },
+    {
+      "level": 3,
+      "hint_text": "A recursive call stack naturally acts as your data structure for exploring down and bubbling information back up."
+    },
+    {
+      "level": 4,
+      "hint_text": "Traverse the tree recursively, asking subtrees to report if they contain either of the target nodes."
+    },
+    {
+      "level": 5,
+      "hint_text": "Return the current node if it matches either target, or if both of its subtrees return non-null results, identifying the current node as the lowest common ancestor."
+    }
+  ],
+  "tr5": [
+    {
+      "level": 1,
+      "hint_text": "Think about traversing the tree level by level or branch by branch to examine the spatial layout."
+    },
+    {
+      "level": 2,
+      "hint_text": "Notice that from the right side, the last node encountered at each depth is the only one visible."
+    },
+    {
+      "level": 3,
+      "hint_text": "A queue structure is ideal for processing elements level by level in a breadth-first manner."
+    },
+    {
+      "level": 4,
+      "hint_text": "Process the tree level by level, keeping track of depth, and always record the final element encountered at each depth."
+    },
+    {
+      "level": 5,
+      "hint_text": "Perform a breadth-first search using a queue, tracking the size of each level so you can identify and store the rightmost node before moving to the next depth."
+    }
+  ],
+  "s1": [
+    {
+      "level": 1,
+      "hint_text": "Consider how you process items that must be matched or paired in the reverse order of how you encounter them."
+    },
+    {
+      "level": 2,
+      "hint_text": "The most recently opened bracket is always the first one that needs to be closed."
+    },
+    {
+      "level": 3,
+      "hint_text": "A LIFO data structure allows you to track open brackets so the most recent one is always accessible at the top."
+    },
+    {
+      "level": 4,
+      "hint_text": "Scan the string from left to right, pushing every open bracket onto your collection, and whenever you see a closing bracket, check if it matches the most recent open one."
+    },
+    {
+      "level": 5,
+      "hint_text": "Iterate through each character of the string, push opening brackets onto a stack, and for closing brackets, pop from the stack to verify it matches the correct corresponding open bracket type, ensuring the stack is empty at the end."
+    }
+  ],
+  "s2": [
+    {
+      "level": 1,
+      "hint_text": "Think about how you can process elements relative to their future counterparts without resorting to a nested loop."
+    },
+    {
+      "level": 2,
+      "hint_text": "Notice that when you find a warmer temperature, you can immediately resolve the waiting times for multiple previous colder days that were waiting for relief."
+    },
+    {
+      "level": 3,
+      "hint_text": "A monotonic stack is the ideal data structure for keeping track of indices whose warmer future day has not yet been found."
+    },
+    {
+      "level": 4,
+      "hint_text": "Iterate through the array, and whenever the current temperature exceeds the temperature at the index stored on top of your stack, pop the stack and record the distance for that index."
+    },
+    {
+      "level": 5,
+      "hint_text": "Maintain a stack of indices as you loop through the array; while the stack is not empty and the current temperature is greater than the temperature at the index on top, pop that index and calculate its answer using the current index."
+    }
+  ],
+  "s3": [
+    {
+      "level": 1,
+      "hint_text": "Think about how you can determine the maximum area by examining relationships between adjacent and non-adjacent bars."
+    },
+    {
+      "level": 2,
+      "hint_text": "The height of any potential rectangle is constrained by its shortest bar, and a bar can extend outwards as long as the neighboring bars are taller or equal."
+    },
+    {
+      "level": 3,
+      "hint_text": "Consider using a monotonic stack to efficiently keep track of indices of bars in increasing order of their heights."
+    },
+    {
+      "level": 4,
+      "hint_text": "Iterate through the histogram, and whenever you encounter a bar shorter than the one at the top of your stack, pop from the stack and calculate the rectangle area using the popped bar as the shortest height."
+    },
+    {
+      "level": 5,
+      "hint_text": "Maintain a stack of indices with heights in strictly increasing order; for each bar, pop and compute areas while the current bar is shorter than the stack top, using the current index as the right boundary and the new stack top as the left boundary."
+    }
+  ],
+  "sw1": [
+    {
+      "level": 1,
+      "hint_text": "Consider how a sliding window approach could help you track a dynamic range of days as you move through the array."
+    },
+    {
+      "level": 2,
+      "hint_text": "To maximize profit, you always want to compare the current day's price against the absolute lowest price seen so far."
+    },
+    {
+      "level": 3,
+      "hint_text": "You can solve this efficiently by keeping track of a running minimum value and a running maximum profit."
+    },
+    {
+      "level": 4,
+      "hint_text": "Iterate through the prices once, updating your lowest price whenever you encounter a smaller value, and calculating potential profit using that lowest price at every step."
+    },
+    {
+      "level": 5,
+      "hint_text": "Initialize your minimum price to infinity and max profit to zero, then loop through each price to update the minimum price and check if the current price minus the minimum price exceeds your current max profit."
+    }
+  ],
+  "sw3": [
+    {
+      "level": 1,
+      "hint_text": "Think about how you can examine contiguous segments of the string using a sliding window approach."
+    },
+    {
+      "level": 2,
+      "hint_text": "The core insight is that a window is valid as long as its total length minus the count of its most frequent character is less than or equal to k."
+    },
+    {
+      "level": 3,
+      "hint_text": "You will need a frequency map or array to keep track of character counts inside your current window."
+    },
+    {
+      "level": 4,
+      "hint_text": "Expand your window to the right character by character, updating your frequency counts and tracking the maximum frequency seen so far, and shrink from the left whenever the replacement limit is exceeded."
+    },
+    {
+      "level": 5,
+      "hint_text": "Maintain a left pointer at the start of the window, iterate a right pointer across the string, always update the max frequency of any single character in the current window, and record the maximum window length whenever the window remains valid."
+    }
+  ],
+  "sw4": [
+    {
+      "level": 1,
+      "hint_text": "Consider how you can process elements in a contiguous subsegment of the array as it moves across."
+    },
+    {
+      "level": 2,
+      "hint_text": "As the window slides, elements on the left exit while new elements enter on the right. Notice how you only care about values that could potentially be the maximum in the current window and future ones."
+    },
+    {
+      "level": 3,
+      "hint_text": "A monotonic queue is the ideal data structure here, as it maintains elements in decreasing order of their values while allowing efficient removals from both ends."
+    },
+    {
+      "level": 4,
+      "hint_text": "Maintain your data structure so that it stores indices rather than values, removing indices that fall outside the current window and popping smaller elements from the back before adding the new element."
+    },
+    {
+      "level": 5,
+      "hint_text": "Iterate through the array, prune indices older than the current index minus k plus one from the front, pop elements smaller than the current number from the back, push the current index, and record the front element's value once the window reaches size k."
+    }
+  ]
+}

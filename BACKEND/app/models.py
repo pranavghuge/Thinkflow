@@ -141,3 +141,37 @@ class Evaluation(Base):
         CheckConstraint('correctness_score BETWEEN 0 AND 100', name='check_correctness_score_range'),
         CheckConstraint('edge_case_score BETWEEN 0 AND 100', name='check_edge_case_score_range'),
     )
+
+class SessionEvent(Base):
+    __tablename__ = "session_events"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    session_id = Column(
+        String(100),
+        ForeignKey("sessions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    event_type = Column(
+        String(50),
+        nullable=False,
+        index=True,
+    )
+
+    event_data = Column(JSON)
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+        index=True,
+    )    
