@@ -65,6 +65,34 @@ class RecognitionRequest(BaseModel):
 class ApproachRequest(BaseModel):
     content: str = Field(..., min_length=1)
 
+class ApproachEvaluationResponse(BaseModel):
+    pattern_score: int = Field(..., ge=0, le=100)
+    complexity_score: int = Field(..., ge=0, le=100)
+    correctness_score: int = Field(..., ge=0, le=100)
+    edge_case_score: int = Field(..., ge=0, le=100)
+
+    overall_verdict: Literal[
+        "strong",
+        "needs_improvement",
+        "incorrect",
+    ]
+
+    feedback: str = Field(..., min_length=1)
+
+
+class ApproachSubmissionResponse(BaseModel):
+    attempt_number: int
+    approach: str
+
+    evaluation: ApproachEvaluationResponse
+
+class AIApproachEvaluation(BaseModel):
+    pattern_score: int = Field(..., ge=0, le=100)
+    complexity_score: int = Field(..., ge=0, le=100)
+    correctness_score: int = Field(..., ge=0, le=100)
+    edge_case_score: int = Field(..., ge=0, le=100)
+
+    feedback: str = Field(..., min_length=1)    
 
 class SessionDetailResponse(BaseModel):
     id: str
