@@ -4,15 +4,26 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session as DBSession
 
+from .services.approach_evaluator import evaluate_approach,compute_verdict
 from .auth import get_current_user
 from .database import get_db
-from .models import User, Session as SessionModel, Problem, Approach, ProblemHint,SessionEvent
+from .models import (
+    User,
+    Session as SessionModel,
+    Problem,
+    Approach,
+    Evaluation,
+    ProblemHint,
+    SessionEvent,
+)
 from .schemas import (
     CreateSessionRequest,
     RecognitionRequest,
     ApproachRequest,
+    ApproachSubmissionResponse,
     SessionDetailResponse,
     SessionSummaryResponse,
+    ApproachEvaluationResponse
 )
 
 router = APIRouter(prefix="/sessions", tags=["Sessions"])
@@ -164,7 +175,7 @@ def update_recognition(
     return session
 
 
-@router.post("/{session_id}/approach", response_model=SessionDetailResponse)
+@router.post("/{session_id}/approach", response_model=ApproachSubmissionResponse)
 def submit_approach(
     data: ApproachRequest,
     session: SessionModel = Depends(get_owned_session),
@@ -188,31 +199,95 @@ def submit_approach(
             detail=f"Maximum of {MAX_APPROACH_ATTEMPTS} approach attempts reached",
         )
 
+    attempt_number = existing_attempts + 1
+
+    problem = (
+        db.query(Problem)
+        .filter(Problem.id == session.problem_id)
+        .first()
+    )
+
+    if problem is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Problem not found",
+        )
+
+    # Call the AI evaluator BEFORE persisting anything. If this fails,
+    # nothing is written and the user's attempt is not consumed.
+    try:
+        ai_result = evaluate_approach(
+            problem_statement=problem.statement,
+            problem_pattern=problem.pattern,
+            expected_time_complexity=problem.time_complexity,
+            expected_space_complexity=problem.space_complexity,
+            approach=data.content.strip(),
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Approach evaluation failed. Please try submitting again.",
+        )
+
+    verdict = compute_verdict(ai_result)
+
     approach = Approach(
         session_id=session.id,
-        approach_text=data.content,
-        attempt_number=existing_attempts + 1,
+        approach_text=data.content.strip(),
+        attempt_number=attempt_number,
     )
     db.add(approach)
+    db.flush()  # now safe — only reached after a successful evaluation
+
+    db.add(
+        Evaluation(
+            approach_id=approach.id,
+            pattern_score=ai_result.pattern_score,
+            complexity_score=ai_result.complexity_score,
+            correctness_score=ai_result.correctness_score,
+            edge_case_score=ai_result.edge_case_score,
+            overall_verdict=verdict,
+            feedback=ai_result.feedback.model_dump_json(),
+        )
+    )
 
     session.status = "approach_submitted"
-    # Actual rubric evaluation (Approach Evaluation Service) is wired
-    # in a later step — this only persists the attempt for now.
 
     log_event(
         db,
         session,
         "approach_submitted",
+        {"attempt_number": attempt_number},
+    )
+
+    log_event(
+        db,
+        session,
+        "approach_evaluated",
         {
-            "attempt_number": existing_attempts + 1,
+            "attempt_number": attempt_number,
+            "pattern_score": ai_result.pattern_score,
+            "complexity_score": ai_result.complexity_score,
+            "correctness_score": ai_result.correctness_score,
+            "edge_case_score": ai_result.edge_case_score,
+            "overall_verdict": verdict,
         },
     )
 
     db.commit()
-    db.refresh(session)
 
-    return session
-
+    return ApproachSubmissionResponse(
+        attempt_number=attempt_number,
+        approach=approach.approach_text,
+        evaluation=ApproachEvaluationResponse(
+            pattern_score=ai_result.pattern_score,
+            complexity_score=ai_result.complexity_score,
+            correctness_score=ai_result.correctness_score,
+            edge_case_score=ai_result.edge_case_score,
+            overall_verdict=verdict,
+            feedback=ai_result.feedback,
+        ),
+    )
 
 @router.post("/{session_id}/hints", response_model=SessionDetailResponse)
 def request_hint(

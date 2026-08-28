@@ -1,4 +1,4 @@
-def determine_verdict(
+def compute_verdict(
     pattern_score: int,
     complexity_score: int,
     correctness_score: int,
