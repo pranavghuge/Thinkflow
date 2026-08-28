@@ -123,14 +123,12 @@ def save_api_key(
 
     existing_api_key = (
         db.query(ApiKey)
-        .filter(
-            ApiKey.user_id == current_user.id,
-            ApiKey.provider == data.provider,
-        )
+        .filter(ApiKey.user_id == current_user.id)
         .first()
     )
 
     if existing_api_key:
+        existing_api_key.provider = data.provider
         existing_api_key.encrypted_key = encrypted_api_key
     else:
         db.add(
@@ -143,9 +141,10 @@ def save_api_key(
 
     db.commit()
 
-    return ApiKeyResponse(provider=data.provider, configured=True)
-
-
+    return ApiKeyResponse(
+        provider=data.provider,
+        configured=True,
+    )
 # ---------------------------------------------------------
 # DELETE /settings/api-key/{provider}
 # ---------------------------------------------------------
