@@ -223,10 +223,11 @@ def submit_approach(
             expected_space_complexity=problem.space_complexity,
             approach=data.content.strip(),
         )
+
     except Exception:
         raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Approach evaluation failed. Please try submitting again.",
+        status_code=status.HTTP_502_BAD_GATEWAY,
+        detail="Approach evaluation failed. Please try submitting again.",
         )
 
     verdict = compute_verdict(ai_result)

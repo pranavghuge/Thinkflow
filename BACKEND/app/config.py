@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 30
     api_key_encryption_key: str
-    gemini_api_key: str
+    gemini_api_key:str
     environment: str = "development"
     cors_origins: str = "http://localhost:3000"
 
