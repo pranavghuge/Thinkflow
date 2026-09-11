@@ -22,14 +22,16 @@ from .schemas import (
     ApproachRequest,
     ApproachSubmissionResponse,
     SessionDetailResponse,
+    HintResponse,
     SessionSummaryResponse,
-    ApproachEvaluationResponse
+    ApproachEvaluationResponse,
+    ApproachFeedback,
 )
 
 router = APIRouter(prefix="/sessions", tags=["Sessions"])
 
-MAX_APPROACH_ATTEMPTS = 2
-MAX_HINT_LEVEL = 5
+MAX_COMBINED_ACTIONS = 7  # total hints + approach submissions allowed per session
+MAX_HINT_LEVEL = 5        # ceiling matching the seeded hint ladder length
 
 
 def get_owned_session(
@@ -111,6 +113,17 @@ def create_session(
 
     return session
 
+@router.get("", response_model=list[SessionDetailResponse])
+def list_sessions(
+    db: DBSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return (
+        db.query(SessionModel)
+        .filter(SessionModel.user_id == current_user.id)
+        .order_by(SessionModel.started_at.desc())
+        .all()
+    )
 
 @router.get("/{session_id}", response_model=SessionDetailResponse)
 def get_session(
@@ -193,10 +206,12 @@ def submit_approach(
         .count()
     )
 
-    if existing_attempts >= MAX_APPROACH_ATTEMPTS:
+    total_actions_used = existing_attempts + session.current_hint_level
+
+    if total_actions_used >= MAX_COMBINED_ACTIONS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Maximum of {MAX_APPROACH_ATTEMPTS} approach attempts reached",
+            detail=f"Maximum of {MAX_COMBINED_ACTIONS} combined actions (hints + approaches) reached",
         )
 
     attempt_number = existing_attempts + 1
@@ -213,8 +228,6 @@ def submit_approach(
             detail="Problem not found",
         )
 
-    # Call the AI evaluator BEFORE persisting anything. If this fails,
-    # nothing is written and the user's attempt is not consumed.
     try:
         ai_result = evaluate_approach(
             problem_statement=problem.statement,
@@ -223,11 +236,10 @@ def submit_approach(
             expected_space_complexity=problem.space_complexity,
             approach=data.content.strip(),
         )
-
     except Exception:
         raise HTTPException(
-        status_code=status.HTTP_502_BAD_GATEWAY,
-        detail="Approach evaluation failed. Please try submitting again.",
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Approach evaluation failed. Please try submitting again.",
         )
 
     verdict = compute_verdict(ai_result)
@@ -238,7 +250,7 @@ def submit_approach(
         attempt_number=attempt_number,
     )
     db.add(approach)
-    db.flush()  # now safe — only reached after a successful evaluation
+    db.flush()
 
     db.add(
         Evaluation(
@@ -290,11 +302,25 @@ def submit_approach(
         ),
     )
 
-@router.post("/{session_id}/hints", response_model=SessionDetailResponse)
+@router.post("/{session_id}/hints", response_model=HintResponse)
 def request_hint(
     session: SessionModel = Depends(get_owned_session),
     db: DBSession = Depends(get_db),
 ):
+    existing_attempts = (
+        db.query(Approach)
+        .filter(Approach.session_id == session.id)
+        .count()
+    )
+
+    total_actions_used = existing_attempts + session.current_hint_level
+
+    if total_actions_used >= MAX_COMBINED_ACTIONS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Maximum of {MAX_COMBINED_ACTIONS} combined actions (hints + approaches) reached",
+        )
+
     if session.current_hint_level >= MAX_HINT_LEVEL:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -324,16 +350,25 @@ def request_hint(
         db,
         session,
         "hint_requested",
-        {
-            "hint_level": next_level,
-        },
+        {"hint_level": next_level},
     )
 
     db.commit()
     db.refresh(session)
 
-    return session
-
+    return HintResponse(
+        id=session.id,
+        problem_id=session.problem_id,
+        status=session.status,
+        recognition_time=session.recognition_time,
+        claimed_pattern=session.claimed_pattern,
+        detected_pattern=session.detected_pattern,
+        pattern_match=session.pattern_match,
+        current_hint_level=session.current_hint_level,
+        started_at=session.started_at,
+        ended_at=session.ended_at,
+        hint_text=hint.hint_text,
+    )
 
 @router.get("/{session_id}/summary", response_model=SessionSummaryResponse)
 def get_summary(
@@ -346,6 +381,27 @@ def get_summary(
         .count()
     )
 
+    latest_approach = (
+        db.query(Approach)
+        .filter(Approach.session_id == session.id)
+        .order_by(Approach.attempt_number.desc())
+        .first()
+    )
+
+    overall_verdict = None
+    feedback = None
+
+    if latest_approach is not None:
+        evaluation = (
+            db.query(Evaluation)
+            .filter(Evaluation.approach_id == latest_approach.id)
+            .first()
+        )
+
+        if evaluation is not None:
+            overall_verdict = evaluation.overall_verdict
+            feedback = ApproachFeedback.model_validate_json(evaluation.feedback)
+
     return SessionSummaryResponse(
         recognition_time=session.recognition_time,
         pattern_match=session.pattern_match,
@@ -353,4 +409,7 @@ def get_summary(
         detected_pattern=session.detected_pattern,
         attempt_count=attempt_count,
         status=session.status,
+        overall_verdict=overall_verdict,
+        feedback=feedback,
+        hints_used=session.current_hint_level,
     )

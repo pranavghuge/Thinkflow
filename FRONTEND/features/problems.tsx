@@ -1,55 +1,86 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Play, Sparkles, ShieldCheck, Zap, Layers, Target } from "lucide-react";
 import { Button, Card, SectionTitle } from "@/components/ui";
-import { createSession, problems, type Category, type Problem } from "@/features/data";
+import { apiFetch } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-const categories: Category[] = [
+// Matches backend ProblemSummary exactly: id, difficulty, category
+type ProblemSummary = {
+  id: string;
+  difficulty: "Easy" | "Medium" | "Hard";
+  category: string;
+};
+
+type SessionDetail = {
+  id: string;
+  problem_id: string;
+  status: string;
+};
+
+const categories = [
   "Arrays & Strings",
   "Linked Lists & Stacks",
   "Trees & Graphs",
   "Heap & Sorting",
 ];
 
-const difficulties: Array<Problem["difficulty"] | "All"> = ["All", "Easy", "Medium", "Hard"];
+const difficulties: Array<ProblemSummary["difficulty"] | "All"> = ["All", "Easy", "Medium", "Hard"];
 
 export function Problems() {
   const router = useRouter();
-  const [selectedCategory, setSelectedCategory] = useState<Category | "All">("All");
-  const [selectedDifficulty, setSelectedDifficulty] = useState<Problem["difficulty"] | "All">("All");
+  const [selectedCategory, setSelectedCategory] = useState<string>("All");
+  const [selectedDifficulty, setSelectedDifficulty] = useState<ProblemSummary["difficulty"] | "All">("All");
+  const [pool, setPool] = useState<ProblemSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [starting, setStarting] = useState(false);
 
-  // Filter valid problems
-  const validProblems = problems.filter((p) => p.id && p.title);
+  useEffect(() => {
+    const fetchProblems = async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const params = new URLSearchParams();
+        if (selectedDifficulty !== "All") params.set("difficulty", selectedDifficulty);
+        if (selectedCategory !== "All") params.set("category", selectedCategory);
 
-  const filteredPool = validProblems.filter((p) => {
-    const matchesDifficulty = selectedDifficulty === "All" || p.difficulty === selectedDifficulty;
-    const matchesCategory = selectedCategory === "All" || p.category === selectedCategory;
-    return matchesDifficulty && matchesCategory;
-  });
+        const query = params.toString();
+        const data = await apiFetch<ProblemSummary[]>(`/problems${query ? `?${query}` : ""}`);
+        setPool(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load problems.");
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const handleStartPracticing = () => {
-    if (filteredPool.length === 0) {
+    fetchProblems();
+  }, [selectedDifficulty, selectedCategory]);
+
+  const handleStartPracticing = async () => {
+    if (pool.length === 0) {
       alert(`No ${selectedDifficulty} problems found for ${selectedCategory}. Try adjusting filters!`);
       return;
     }
 
-    const randomProblem = filteredPool[Math.floor(Math.random() * filteredPool.length)];
-    const session = createSession(randomProblem);
+    const randomProblem = pool[Math.floor(Math.random() * pool.length)];
+    setStarting(true);
+    setError("");
 
-    // ==========================================
-    // CRITICAL FIX: Ensure session is explicitly saved to localStorage 
-    // so loadSession([id]) can immediately read it on mount.
-    // ==========================================
     try {
-      localStorage.setItem(`session_${session.id}`, JSON.stringify(session));
-    } catch (e) {
-      console.error("Failed to save session to localStorage", e);
-    }
+      const session = await apiFetch<SessionDetail>("/sessions", {
+        method: "POST",
+        body: JSON.stringify({ problem_id: randomProblem.id }),
+      });
 
-    router.push(`/session/${session.id}`);
+      router.push(`/session/${session.id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to start session.");
+      setStarting(false);
+    }
   };
 
   return (
@@ -61,19 +92,23 @@ export function Problems() {
           copy="Zero spoilers before the clock starts. Train real pattern recognition under interview constraints."
         />
 
-        {/* Main Centered Box */}
         <Card className="relative w-full overflow-hidden border-accent/25 bg-panel-raised/60 p-8 shadow-2xl backdrop-blur-md md:p-10">
           <div className="flex items-center justify-between pb-6 border-b border-border/60">
             <div className="flex items-center gap-2.5 text-sm font-bold uppercase tracking-wider text-accent">
               <Sparkles size={18} /> Session Parameters
             </div>
             <span className="text-xs font-mono font-medium text-muted bg-canvas px-3 py-1.5 rounded-full border border-border/80">
-              {filteredPool.length} {filteredPool.length === 1 ? "Problem" : "Problems"} Available
+              {loading ? "Loading…" : `${pool.length} ${pool.length === 1 ? "Problem" : "Problems"} Available`}
             </span>
           </div>
 
+          {error && (
+            <p role="alert" className="mt-4 text-sm text-danger">
+              {error}
+            </p>
+          )}
+
           <div className="mt-8 space-y-8">
-            {/* Difficulty Selector as Pills */}
             <div className="space-y-3">
               <label className="text-xs font-semibold uppercase tracking-wider text-muted flex items-center gap-2">
                 <Target size={16} className="text-accent" /> Select Difficulty
@@ -97,14 +132,13 @@ export function Problems() {
               </div>
             </div>
 
-            {/* Category Dropdown */}
             <div className="space-y-3">
               <label className="text-xs font-semibold uppercase tracking-wider text-muted flex items-center gap-2">
                 <Layers size={16} className="text-accent" /> Topic Category
               </label>
               <select
                 value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value as Category | "All")}
+                onChange={(e) => setSelectedCategory(e.target.value)}
                 className="w-full rounded-lg border border-border/80 bg-canvas px-4 py-3 text-sm text-ink transition-colors focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
               >
                 <option value="All">Any Category (Random Mix)</option>
@@ -116,21 +150,23 @@ export function Problems() {
               </select>
             </div>
 
-            {/* Main Action Button */}
             <div className="pt-2">
               <Button
                 onClick={handleStartPracticing}
-                disabled={filteredPool.length === 0}
+                disabled={loading || starting || pool.length === 0}
                 className="w-full gap-3 py-4 text-base font-semibold shadow-xl shadow-accent/10 transition-transform active:scale-[0.99] rounded-lg"
               >
                 <Play size={20} className="fill-current" />
-                {filteredPool.length === 0 ? "No Problems Match Filters" : "Start Practice Session"}
+                {starting
+                  ? "Starting…"
+                  : pool.length === 0
+                  ? "No Problems Match Filters"
+                  : "Start Practice Session"}
               </Button>
             </div>
           </div>
         </Card>
 
-        {/* Supporting Details Below the Main Card */}
         <div className="grid gap-4 sm:grid-cols-2">
           <Card className="p-5 flex items-start gap-3 bg-panel-raised/30 border-border/60">
             <ShieldCheck size={20} className="text-accent shrink-0 mt-0.5" />

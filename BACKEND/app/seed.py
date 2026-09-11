@@ -35,8 +35,8 @@ def seed_problems(db: Session) -> None:
             "recognition_minutes": data["recognition_minutes"],
             "pattern": data["pattern"],
             "category": data["category"],
-            "constraints": json.dumps(data["constraints"]),
-            "examples": json.dumps(data["examples"]),
+            "constraints": data["constraints"],
+            "examples": data["examples"],
             "time_complexity": data["time_complexity"],
             "space_complexity": data["space_complexity"],
         }

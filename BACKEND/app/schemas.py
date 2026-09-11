@@ -48,7 +48,20 @@ class ProblemSummary(BaseModel):
     class Config:
         from_attributes = True
 
+class ProblemDetail(BaseModel):
+    id: str
+    title: str
+    category: str
+    pattern: str
+    difficulty: str
+    statement: str
+    examples: list[dict]
+    constraints: list[str]
+    time_complexity: str | None
+    space_complexity: str | None
 
+    class Config:
+        from_attributes = True
 # ---------------------------------------------------------
 # Sessions
 # ---------------------------------------------------------
@@ -137,6 +150,21 @@ class SessionDetailResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class HintResponse(BaseModel):
+    id: str
+    problem_id: str
+    status: str
+    recognition_time: int | None
+    claimed_pattern: str | None
+    detected_pattern: str | None
+    pattern_match: bool | None
+    current_hint_level: int
+    started_at: datetime
+    ended_at: datetime | None
+    hint_text: str
+
+    class Config:
+        from_attributes = True
 
 class SessionSummaryResponse(BaseModel):
     recognition_time: int | None
@@ -145,4 +173,6 @@ class SessionSummaryResponse(BaseModel):
     detected_pattern: str | None
     attempt_count: int
     status: str
+    overall_verdict: Literal["strong", "needs_improvement", "incorrect"] | None
+    feedback: ApproachFeedback | None
     
