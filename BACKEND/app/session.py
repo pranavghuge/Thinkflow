@@ -30,8 +30,8 @@ from .schemas import (
 
 router = APIRouter(prefix="/sessions", tags=["Sessions"])
 
-MAX_COMBINED_ACTIONS = 7  # total hints + approach submissions allowed per session
-MAX_HINT_LEVEL = 5        # ceiling matching the seeded hint ladder length
+MAX_APPROACH_ATTEMPTS = 2 
+MAX_HINT_LEVEL = 5      
 
 
 def get_owned_session(
@@ -75,6 +75,37 @@ def log_event(
 
     db.add(event)
 
+def build_session_detail(session: SessionModel, db: DBSession) -> SessionDetailResponse:
+    latest_approach = (
+        db.query(Approach)
+        .filter(Approach.session_id == session.id)
+        .order_by(Approach.attempt_number.desc())
+        .first()
+    )
+
+    overall_verdict = None
+    if latest_approach is not None:
+        evaluation = (
+            db.query(Evaluation)
+            .filter(Evaluation.approach_id == latest_approach.id)
+            .first()
+        )
+        if evaluation is not None:
+            overall_verdict = evaluation.overall_verdict
+
+    return SessionDetailResponse(
+        id=session.id,
+        problem_id=session.problem_id,
+        status=session.status,
+        recognition_time=session.recognition_time,
+        claimed_pattern=session.claimed_pattern,
+        detected_pattern=session.detected_pattern,
+        pattern_match=session.pattern_match,
+        current_hint_level=session.current_hint_level,
+        started_at=session.started_at,
+        ended_at=session.ended_at,
+        overall_verdict=overall_verdict,
+    )
 
 @router.post("", response_model=SessionDetailResponse, status_code=status.HTTP_201_CREATED)
 def create_session(
@@ -111,25 +142,29 @@ def create_session(
     db.commit()
     db.refresh(session)
 
-    return session
+    return build_session_detail(session, db)
 
 @router.get("", response_model=list[SessionDetailResponse])
 def list_sessions(
     db: DBSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return (
+    sessions= (
         db.query(SessionModel)
         .filter(SessionModel.user_id == current_user.id)
         .order_by(SessionModel.started_at.desc())
         .all()
     )
 
+    return [build_session_detail(s, db) for s in sessions] 
+
+
 @router.get("/{session_id}", response_model=SessionDetailResponse)
 def get_session(
     session: SessionModel = Depends(get_owned_session),
+    db: DBSession = Depends(get_db),
 ):
-    return session
+    return build_session_detail(session, db)
 
 
 @router.patch("/{session_id}/recognition", response_model=SessionDetailResponse)
@@ -185,8 +220,7 @@ def update_recognition(
     db.commit()
     db.refresh(session)
 
-    return session
-
+    return build_session_detail(session, db)
 
 @router.post("/{session_id}/approach", response_model=ApproachSubmissionResponse)
 def submit_approach(
@@ -206,12 +240,10 @@ def submit_approach(
         .count()
     )
 
-    total_actions_used = existing_attempts + session.current_hint_level
-
-    if total_actions_used >= MAX_COMBINED_ACTIONS:
+    if existing_attempts >= MAX_APPROACH_ATTEMPTS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Maximum of {MAX_COMBINED_ACTIONS} combined actions (hints + approaches) reached",
+            detail=f"Maximum of {MAX_APPROACH_ATTEMPTS} approach attempts reached",
         )
 
     attempt_number = existing_attempts + 1
@@ -307,20 +339,6 @@ def request_hint(
     session: SessionModel = Depends(get_owned_session),
     db: DBSession = Depends(get_db),
 ):
-    existing_attempts = (
-        db.query(Approach)
-        .filter(Approach.session_id == session.id)
-        .count()
-    )
-
-    total_actions_used = existing_attempts + session.current_hint_level
-
-    if total_actions_used >= MAX_COMBINED_ACTIONS:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Maximum of {MAX_COMBINED_ACTIONS} combined actions (hints + approaches) reached",
-        )
-
     if session.current_hint_level >= MAX_HINT_LEVEL:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

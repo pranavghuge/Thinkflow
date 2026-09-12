@@ -134,7 +134,6 @@ class ApproachSubmissionResponse(BaseModel):
 # ---------------------------------------------------------
 # Session detail / summary
 # ---------------------------------------------------------
-
 class SessionDetailResponse(BaseModel):
     id: str
     problem_id: str
@@ -146,9 +145,11 @@ class SessionDetailResponse(BaseModel):
     current_hint_level: int
     started_at: datetime
     ended_at: datetime | None
+    overall_verdict: Literal["strong", "needs_improvement", "incorrect"] | None
 
     class Config:
-        from_attributes = True
+        from_attributes = True  
+
 
 class HintResponse(BaseModel):
     id: str
@@ -175,4 +176,5 @@ class SessionSummaryResponse(BaseModel):
     status: str
     overall_verdict: Literal["strong", "needs_improvement", "incorrect"] | None
     feedback: ApproachFeedback | None
-    
+    hints_used: int
+  

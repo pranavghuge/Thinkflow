@@ -8,6 +8,14 @@ import { patterns } from "@/features/data";
 import { apiFetch } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
+const MAX_APPROACH_ATTEMPTS = 2;
+
+function verdictTone(verdict: "strong" | "needs_improvement" | "incorrect"): "success" | "warning" | "error" {
+  if (verdict === "strong") return "success";
+  if (verdict === "needs_improvement") return "warning";
+  return "error";
+}
+
 // ---- Types matching backend schemas exactly ----
 
 type SessionDetail = {
@@ -102,6 +110,7 @@ export function PracticeSession({ sessionId }: { sessionId: string }) {
   const [error, setError] = useState("");
   const [problem, setProblem] = useState<ProblemDetail | null>(null);
   const [currentHintText, setCurrentHintText] = useState<string | null>(null);
+  const [attemptCount, setAttemptCount] = useState(0);
 
   // Load the real session on mount
   useEffect(() => {
@@ -162,19 +171,20 @@ export function PracticeSession({ sessionId }: { sessionId: string }) {
   };
 
   const submitApproach = async (content: string) => {
-    if (!session) return;
-    setError("");
-    try {
-      const result = await apiFetch<ApproachSubmissionResponse>(`/sessions/${session.id}/approach`, {
-        method: "POST",
-        body: JSON.stringify({ content }),
-      });
-      setLastEvaluation(result);
-      setUiPhase("rubric");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to submit approach.");
-    }
-  };
+  if (!session) return;
+  setError("");
+  try {
+    const result = await apiFetch<ApproachSubmissionResponse>(`/sessions/${session.id}/approach`, {
+      method: "POST",
+      body: JSON.stringify({ content }),
+    });
+    setLastEvaluation(result);
+    setAttemptCount(result.attempt_number);
+    setUiPhase("rubric");
+  } catch (err) {
+    setError(err instanceof Error ? err.message : "Failed to submit approach.");
+  }
+};
 
   const requestHint = async () => {
   if (!session) return;
@@ -245,21 +255,23 @@ export function PracticeSession({ sessionId }: { sessionId: string }) {
         <Confirmation session={session} onContinue={() => setUiPhase("approach")} />
       )}
 
-      {uiPhase === "approach" && <Approach onSubmit={submitApproach} />}
+      {uiPhase === "approach" && <Approach attemptCount={attemptCount} onSubmit={submitApproach} />}
 
       {uiPhase === "rubric" && lastEvaluation && (
-        <Rubric
-          evaluation={lastEvaluation.evaluation}
-          onRevise={() => setUiPhase("approach")}
-          onHints={() => setUiPhase("hints")}
-          onSummary={goToSummary}
-        />
-      )}
+  <Rubric
+    evaluation={lastEvaluation.evaluation}
+    attemptCount={attemptCount}
+    onRevise={() => setUiPhase("approach")}
+    onHints={() => setUiPhase("hints")}
+    onSummary={goToSummary}
+  />
+)}
 
-      {uiPhase === "hints" && (
+    {uiPhase === "hints" && (
   <Hints
     currentLevel={session.current_hint_level}
     hintText={currentHintText}
+    attemptCount={attemptCount}
     onNextHint={requestHint}
     onRevise={() => setUiPhase("approach")}
     onSummary={goToSummary}
@@ -410,7 +422,13 @@ function Confirmation({ session, onContinue }: { session: SessionDetail; onConti
   );
 }
 
-function Approach({ onSubmit }: { onSubmit: (content: string) => void }) {
+function Approach({
+  attemptCount,
+  onSubmit,
+}: {
+  attemptCount: number;
+  onSubmit: (content: string) => void;
+}) {
   const [value, setValue] = useState("");
 
   const submit = () => {
@@ -419,6 +437,11 @@ function Approach({ onSubmit }: { onSubmit: (content: string) => void }) {
 
   return (
     <Card className="p-6">
+      <div className="mb-4 flex items-center justify-between">
+        <span className="text-xs font-mono uppercase tracking-[.14em] text-muted">
+          Attempt {attemptCount + 1} of {MAX_APPROACH_ATTEMPTS}
+        </span>
+      </div>
       <Field label="Your approach" hint="Describe your algorithm, not code.">
         <textarea
           value={value}
@@ -442,16 +465,19 @@ function Approach({ onSubmit }: { onSubmit: (content: string) => void }) {
 
 function Rubric({
   evaluation,
+  attemptCount,
   onRevise,
   onHints,
   onSummary,
 }: {
   evaluation: ApproachEvaluation;
+  attemptCount: number;
   onRevise: () => void;
   onHints: () => void;
   onSummary: () => void;
 }) {
   const solid = evaluation.overall_verdict === "strong";
+  const attemptsExhausted = attemptCount >= MAX_APPROACH_ATTEMPTS;
   const scores = [
     { label: "Pattern fit", score: evaluation.pattern_score },
     { label: "Complexity", score: evaluation.complexity_score },
@@ -472,7 +498,7 @@ function Rubric({
         ))}
       </div>
       <div className="mt-6">
-        <Status tone={solid ? "success" : "warning"}>
+        <Status tone={verdictTone(evaluation.overall_verdict)}>
           {evaluation.overall_verdict.replace(/_/g, " ")}
         </Status>
         <div className="mt-5 grid gap-5 sm:grid-cols-2">
@@ -494,7 +520,14 @@ function Rubric({
         <Button onClick={onSummary} className="mt-6 w-full">View session summary</Button>
       ) : (
         <div className="mt-6 grid gap-3 sm:grid-cols-2">
-          <Button variant="secondary" onClick={onRevise}>Revise approach</Button>
+          <Button
+            variant="secondary"
+            onClick={onRevise}
+            disabled={attemptsExhausted}
+            className={cn(attemptsExhausted && "bg-panel-raised text-muted border-border opacity-60 cursor-not-allowed hover:bg-panel-raised")}
+          >
+            {attemptsExhausted ? "No attempts remaining" : "Revise approach"}
+          </Button>
           <Button onClick={onHints}>Get a hint</Button>
         </div>
       )}
@@ -505,17 +538,20 @@ function Rubric({
 function Hints({
   currentLevel,
   hintText,
+  attemptCount,
   onNextHint,
   onRevise,
   onSummary,
 }: {
   currentLevel: number;
   hintText: string | null;
+  attemptCount: number;
   onNextHint: () => void;
   onRevise: () => void;
   onSummary: () => void;
 }) {
   const last = currentLevel >= 5;
+  const attemptsExhausted = attemptCount >= MAX_APPROACH_ATTEMPTS;
 
   return (
     <Card className="p-6">
@@ -535,8 +571,13 @@ function Hints({
         <Button variant="secondary" disabled={last} onClick={onNextHint}>
           {currentLevel === 0 ? "Get first hint" : "Next hint"}
         </Button>
-        <Button variant="secondary" onClick={onRevise}>
-          Revise approach
+        <Button
+          variant="secondary"
+          onClick={onRevise}
+          disabled={attemptsExhausted}
+          className={cn(attemptsExhausted && "bg-panel-raised text-muted border-border opacity-60 cursor-not-allowed hover:bg-panel-raised")}
+        >
+          {attemptsExhausted ? "No attempts remaining" : "Revise approach"}
         </Button>
         <Button onClick={onSummary}>View session summary</Button>
       </div>
@@ -553,18 +594,65 @@ function Summary({
   onNext: () => void;
   onEnd: () => void;
 }) {
-  const outcomeLabel =
-    summary.hints_used === 0
-      ? "Solved cold"
-      : `Solved after ${summary.hints_used} hint${summary.hints_used > 1 ? "s" : ""}`;
+  const outcomeLabel = (() => {
+    if (summary.overall_verdict === "strong") {
+      if (summary.hints_used === 0) {
+        return "Solved cold";
+      }
+
+      const hintWord = summary.hints_used === 1 ? "hint" : "hints";
+      return `Solved after ${summary.hints_used} ${hintWord}`;
+    }
+
+    if (summary.overall_verdict === "needs_improvement") {
+      if (summary.hints_used === 0) {
+        return "Needs improvement";
+      }
+
+      const hintWord = summary.hints_used === 1 ? "hint" : "hints";
+      return `Needs improvement — used ${summary.hints_used} ${hintWord}`;
+    }
+
+    if (summary.overall_verdict === "incorrect") {
+      if (summary.hints_used === 0) {
+        return "Incorrect";
+      }
+
+      const hintWord = summary.hints_used === 1 ? "hint" : "hints";
+      return `Incorrect — used ${summary.hints_used} ${hintWord}`;
+    }
+
+    return "No approach submitted";
+  })();
+
+  const finalVerdictLabel = (() => {
+    if (summary.overall_verdict === "strong") {
+      return "Solved";
+    }
+
+    if (summary.overall_verdict === "needs_improvement") {
+      return "Needs improvement";
+    }
+
+    if (summary.overall_verdict === "incorrect") {
+      return "Incorrect";
+    }
+
+    return "No verdict available";
+  })();
 
   return (
     <Card className="p-6">
       <div className="text-center">
-        <p className="text-xs font-semibold uppercase tracking-[.14em] text-muted">Recognition time</p>
+        <p className="text-xs font-semibold uppercase tracking-[.14em] text-muted">
+          Recognition time
+        </p>
+
         <p className="mt-3 text-4xl font-semibold text-ink">
           {summary.recognition_time !== null
-            ? `${Math.floor(summary.recognition_time / 60)}m ${summary.recognition_time % 60}s`
+            ? `${Math.floor(summary.recognition_time / 60)}m ${
+                summary.recognition_time % 60
+              }s`
             : "—"}
         </p>
       </div>
@@ -576,7 +664,10 @@ function Summary({
           ["Attempts", String(summary.attempt_count)],
           ["Status", summary.status.replace(/_/g, " ")],
         ].map(([label, value]) => (
-          <div className="flex justify-between py-3 text-sm" key={label}>
+          <div
+            className="flex justify-between py-3 text-sm"
+            key={label}
+          >
             <span className="text-muted">{label}</span>
             <span className="text-ink">{value}</span>
           </div>
@@ -585,34 +676,71 @@ function Summary({
 
       {summary.overall_verdict && summary.feedback ? (
         <div className="mt-6 space-y-4">
-          <div className="rounded-sm border border-border bg-panel-raised p-4">
-            <p className="text-xs font-semibold uppercase tracking-[.14em] text-muted">Final verdict</p>
-            <p className="mt-2 text-sm text-ink">{summary.overall_verdict.replace(/_/g, " ")}</p>
+          <div
+            className={cn(
+              "rounded-sm border p-4",
+              summary.overall_verdict === "strong" &&
+                "border-accent/40 bg-accent-muted/30",
+              summary.overall_verdict === "needs_improvement" &&
+                "border-warning/40 bg-warning/10",
+              summary.overall_verdict === "incorrect" &&
+                "border-danger/40 bg-danger/10"
+            )}
+          >
+            <p className="text-xs font-semibold uppercase tracking-[.14em] text-muted">
+              Final verdict
+            </p>
+
+            <p className="mt-2 text-sm font-medium text-ink">
+              {finalVerdictLabel}
+            </p>
           </div>
+
           <div className="grid gap-4 sm:grid-cols-3">
             <div>
-              <h3 className="text-xs font-semibold uppercase tracking-[.14em] text-muted">Strength</h3>
-              <p className="mt-2 text-sm leading-6 text-muted">{summary.feedback.strength}</p>
+              <h3 className="text-xs font-semibold uppercase tracking-[.14em] text-muted">
+                Strength
+              </h3>
+              <p className="mt-2 text-sm leading-6 text-muted">
+                {summary.feedback.strength}
+              </p>
             </div>
+
             <div>
-              <h3 className="text-xs font-semibold uppercase tracking-[.14em] text-muted">Gap</h3>
-              <p className="mt-2 text-sm leading-6 text-muted">{summary.feedback.gap}</p>
+              <h3 className="text-xs font-semibold uppercase tracking-[.14em] text-muted">
+                Gap
+              </h3>
+              <p className="mt-2 text-sm leading-6 text-muted">
+                {summary.feedback.gap}
+              </p>
             </div>
+
             <div>
-              <h3 className="text-xs font-semibold uppercase tracking-[.14em] text-muted">Improve</h3>
-              <p className="mt-2 text-sm leading-6 text-muted">{summary.feedback.improve}</p>
+              <h3 className="text-xs font-semibold uppercase tracking-[.14em] text-muted">
+                Improve
+              </h3>
+              <p className="mt-2 text-sm leading-6 text-muted">
+                {summary.feedback.improve}
+              </p>
             </div>
           </div>
         </div>
       ) : (
-        <div className="mt-6 rounded-sm border border-border bg-panel-raised p-4 text-sm text-muted">
-          No approach was submitted for this session, so no verdict is available.
+        <div className="mt-6 rounded-sm border border-warning/40 bg-warning/10 p-4 text-sm text-muted">
+          No approach was submitted for this session, so no verdict is
+          available.
         </div>
       )}
 
       <div className="mt-6 grid gap-3 sm:grid-cols-2">
-        <Button variant="secondary" onClick={onEnd}>End session</Button>
-        <Button onClick={onNext} className="gap-2">Next problem <ArrowRight size={16} /></Button>
+        <Button variant="secondary" onClick={onEnd}>
+          End session
+        </Button>
+
+        <Button onClick={onNext} className="gap-2">
+          Next problem
+          <ArrowRight size={16} />
+        </Button>
       </div>
     </Card>
   );
