@@ -1,26 +1,22 @@
-import os
-
 from google import genai
 from google.genai import types
 
 from app.schemas import AIApproachEvaluation
 
 
-client = genai.Client(
-    api_key=os.environ['GEMINI_API_KEY']
-)
-
-
 MODEL_NAME = "gemini-3.5-flash-lite"
 
 
 def evaluate_approach(
+    api_key: str,
     problem_statement: str,
     problem_pattern: str,
     expected_time_complexity: str | None,
     expected_space_complexity: str | None,
     approach: str,
 ) -> AIApproachEvaluation:
+
+    client = genai.Client(api_key=api_key)
 
     prompt = f"""
 You are ThinkFlow's algorithmic approach evaluator.
@@ -617,23 +613,3 @@ The field names and verdict values MUST match the required schema exactly.
         raise ValueError("Gemini returned an invalid evaluation response.")
 
     return response.parsed
-
-def compute_verdict(evaluation: AIApproachEvaluation) -> str:
-    """
-    Derive an overall verdict from the four dimension scores.
-    Adjust thresholds/labels to match what session.py expects.
-    """
-    scores = [
-        evaluation.pattern_score,
-        evaluation.correctness_score,
-        evaluation.complexity_score,
-        evaluation.edge_case_score,
-    ]
-    average = sum(scores) / len(scores)
-
-    if average >= 75:
-        return "strong"
-    elif average >= 50:
-        return "needs_improvement"
-    else:
-        return "incorrect"

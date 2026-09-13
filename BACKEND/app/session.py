@@ -4,9 +4,10 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session as DBSession
 
-from .services.approach_evaluator import evaluate_approach,compute_verdict
+from .services.approach_evaluator import evaluate_approach
 from .auth import get_current_user
 from .database import get_db
+from .settings import decrypt_api_key
 from .models import (
     User,
     Session as SessionModel,
@@ -15,6 +16,7 @@ from .models import (
     Evaluation,
     ProblemHint,
     SessionEvent,
+    ApiKey,
 )
 from .schemas import (
     CreateSessionRequest,
@@ -22,16 +24,16 @@ from .schemas import (
     ApproachRequest,
     ApproachSubmissionResponse,
     SessionDetailResponse,
-    HintResponse,
     SessionSummaryResponse,
     ApproachEvaluationResponse,
+    HintResponse,
     ApproachFeedback,
 )
 
 router = APIRouter(prefix="/sessions", tags=["Sessions"])
 
-MAX_APPROACH_ATTEMPTS = 2 
-MAX_HINT_LEVEL = 5      
+MAX_APPROACH_ATTEMPTS = 2
+MAX_HINT_LEVEL = 5
 
 
 def get_owned_session(
@@ -39,10 +41,6 @@ def get_owned_session(
     db: DBSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> SessionModel:
-    """
-    Shared ownership check, reused across every session endpoint.
-    Returns the session only if it exists AND belongs to the caller.
-    """
     session = (
         db.query(SessionModel)
         .filter(
@@ -60,6 +58,7 @@ def get_owned_session(
 
     return session
 
+
 def log_event(
     db: DBSession,
     session: SessionModel,
@@ -72,8 +71,8 @@ def log_event(
         event_type=event_type,
         event_data=event_data,
     )
-
     db.add(event)
+
 
 def build_session_detail(session: SessionModel, db: DBSession) -> SessionDetailResponse:
     latest_approach = (
@@ -107,6 +106,7 @@ def build_session_detail(session: SessionModel, db: DBSession) -> SessionDetailR
         overall_verdict=overall_verdict,
     )
 
+
 @router.post("", response_model=SessionDetailResponse, status_code=status.HTTP_201_CREATED)
 def create_session(
     data: CreateSessionRequest,
@@ -134,9 +134,7 @@ def create_session(
         db,
         session,
         "session_created",
-        {
-            "problem_id": problem.id,
-        },
+        {"problem_id": problem.id},
     )
 
     db.commit()
@@ -144,19 +142,19 @@ def create_session(
 
     return build_session_detail(session, db)
 
+
 @router.get("", response_model=list[SessionDetailResponse])
 def list_sessions(
     db: DBSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    sessions= (
+    sessions = (
         db.query(SessionModel)
         .filter(SessionModel.user_id == current_user.id)
         .order_by(SessionModel.started_at.desc())
         .all()
     )
-
-    return [build_session_detail(s, db) for s in sessions] 
+    return [build_session_detail(s, db) for s in sessions]
 
 
 @router.get("/{session_id}", response_model=SessionDetailResponse)
@@ -181,7 +179,6 @@ def update_recognition(
 
     problem = db.query(Problem).filter(Problem.id == session.problem_id).first()
 
-    # Server-side elapsed time — never trust a client-supplied duration.
     elapsed_seconds = int(
         (datetime.now(timezone.utc) - session.started_at).total_seconds()
     )
@@ -191,15 +188,12 @@ def update_recognition(
         session.claimed_pattern = None
         session.detected_pattern = problem.pattern
         session.pattern_match = False
-    else:  # "recognized"
+    else:
         session.claimed_pattern = data.claimed_pattern
         session.detected_pattern = problem.pattern
-        # Ground-truth comparison for curated problems. Real Pattern
-        # Detector AI service replaces this equality check later —
-        # see mvp-scope.md, Deliberate Cuts (AI quality risk).
         session.pattern_match = (
-        data.claimed_pattern.strip().casefold()
-        == problem.pattern.strip().casefold()
+            data.claimed_pattern.strip().casefold()
+            == problem.pattern.strip().casefold()
         )
 
     session.status = "recognition_complete"
@@ -221,6 +215,7 @@ def update_recognition(
     db.refresh(session)
 
     return build_session_detail(session, db)
+
 
 @router.post("/{session_id}/approach", response_model=ApproachSubmissionResponse)
 def submit_approach(
@@ -260,8 +255,28 @@ def submit_approach(
             detail="Problem not found",
         )
 
+    # BYOK: this user's own key, decrypted fresh for this call. No
+    # fallback to any shared/server key exists.
+    user_api_key = (
+        db.query(ApiKey)
+        .filter(
+            ApiKey.user_id == session.user_id,
+            ApiKey.provider == "gemini",
+        )
+        .first()
+    )
+
+    if user_api_key is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No Gemini API key configured. Add one in Settings before submitting an approach.",
+        )
+
+    decrypted_key = decrypt_api_key(user_api_key.encrypted_key)
+
     try:
         ai_result = evaluate_approach(
+            api_key=decrypted_key,
             problem_statement=problem.statement,
             problem_pattern=problem.pattern,
             expected_time_complexity=problem.time_complexity,
@@ -271,10 +286,12 @@ def submit_approach(
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Approach evaluation failed. Please try submitting again.",
+            detail="Approach evaluation failed. Check that your Gemini API key is valid.",
         )
 
-    verdict = compute_verdict(ai_result)
+    # Gemini's own reasoned verdict, taken directly — never re-derived by
+    # averaging the four scores.
+    verdict = ai_result.overall_verdict
 
     approach = Approach(
         session_id=session.id,
@@ -334,6 +351,7 @@ def submit_approach(
         ),
     )
 
+
 @router.post("/{session_id}/hints", response_model=HintResponse)
 def request_hint(
     session: SessionModel = Depends(get_owned_session),
@@ -388,6 +406,7 @@ def request_hint(
         hint_text=hint.hint_text,
     )
 
+
 @router.get("/{session_id}/summary", response_model=SessionSummaryResponse)
 def get_summary(
     session: SessionModel = Depends(get_owned_session),
@@ -415,7 +434,6 @@ def get_summary(
             .filter(Evaluation.approach_id == latest_approach.id)
             .first()
         )
-
         if evaluation is not None:
             overall_verdict = evaluation.overall_verdict
             feedback = ApproachFeedback.model_validate_json(evaluation.feedback)

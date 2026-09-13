@@ -91,15 +91,17 @@ class ApproachFeedback(BaseModel):
 
 class AIApproachEvaluation(BaseModel):
     """
-    Validates the raw structured output from the LLM.
-    Deliberately has NO verdict field — the model never decides
-    verdict, per ThinkFlow's core architecture. The verdict is always
-    computed deterministically in Python from these four scores.
+    Validates the raw structured output from the LLM, including the
+    model's own reasoned verdict. The prompt contains detailed,
+    correctness-first verdict logic — that reasoning is only meaningful
+    if the verdict is taken directly from the model's output, not
+    recomputed by averaging the four scores afterward.
     """
     pattern_score: int = Field(..., ge=0, le=100)
     correctness_score: int = Field(..., ge=0, le=100)
     complexity_score: int = Field(..., ge=0, le=100)
     edge_case_score: int = Field(..., ge=0, le=100)
+    overall_verdict: Literal["strong", "needs_improvement", "incorrect"]
     feedback: ApproachFeedback
 
 
