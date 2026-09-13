@@ -62,6 +62,60 @@ class ProblemDetail(BaseModel):
 
     class Config:
         from_attributes = True
+
+# ---------------------------------------------------------
+# Custom Problems (Deep Dive mode)
+# ---------------------------------------------------------
+
+class CustomProblemRequest(BaseModel):
+    name: str = Field(..., min_length=2, max_length=200)
+
+
+class AIGeneratedExample(BaseModel):
+    input: str
+    output: str
+    explanation: str | None = None
+
+
+class AIGeneratedProblem(BaseModel):
+    """
+    recognized=False means the model could not confidently match the
+    given name to a real, well-known DSA/coding-interview problem. In
+    that case every other field is null and the endpoint must refuse
+    to create a problem, rather than falling back to invention.
+    """
+    recognized: bool
+    title: str | None = None
+    statement: str | None = None
+    category: Literal[
+        "Arrays & Strings",
+        "Linked Lists & Stacks",
+        "Trees & Graphs",
+        "Heap & Sorting",
+    ] | None = None
+    pattern: str | None = None
+    difficulty: Literal["Easy", "Medium", "Hard"] | None = None
+    examples: list[AIGeneratedExample] | None = None
+    constraints: list[str] | None = None
+    time_complexity: str | None = None
+    space_complexity: str | None = None
+
+
+class CustomProblemResponse(BaseModel):
+    id: str
+    title: str
+    category: str
+    pattern: str
+    difficulty: str
+    statement: str
+    examples: list[dict]
+    constraints: list[str]
+    time_complexity: str | None
+    space_complexity: str | None
+    source: str
+
+    class Config:
+        from_attributes = True        
 # ---------------------------------------------------------
 # Sessions
 # ---------------------------------------------------------
@@ -104,16 +158,13 @@ class AIApproachEvaluation(BaseModel):
     overall_verdict: Literal["strong", "needs_improvement", "incorrect"]
     feedback: ApproachFeedback
 
-
+class AIGeneratedHint(BaseModel):
+    hint_text: str = Field(..., min_length=1, max_length=400)
 # ---------------------------------------------------------
 # Approach Evaluation — API response (after verdict computed)
 # ---------------------------------------------------------
 
 class ApproachEvaluationResponse(BaseModel):
-    """
-    What the frontend actually receives. overall_verdict is computed
-    in Python from the four scores — never taken from the AI response.
-    """
     pattern_score: int
     correctness_score: int
     complexity_score: int
@@ -148,6 +199,7 @@ class SessionDetailResponse(BaseModel):
     started_at: datetime
     ended_at: datetime | None
     overall_verdict: Literal["strong", "needs_improvement", "incorrect"] | None
+    source: str
 
     class Config:
         from_attributes = True  

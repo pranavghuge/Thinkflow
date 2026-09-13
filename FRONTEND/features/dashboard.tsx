@@ -31,6 +31,7 @@ type SessionDetail = {
   started_at: string;
   ended_at: string | null;
   overall_verdict: "strong" | "needs_improvement" | "incorrect" | null;
+  source: "curated" | "custom";
 };
 
 type ProblemInfo = {
@@ -51,7 +52,7 @@ function outcomeBadge(
   label: string;
   tone: "success" | "warning" | "error" | "muted";
 } {
-  if (session.recognition_time === null) {
+  if (session.recognition_time === null && session.source === "curated") {
     return { label: "In progress", tone: "muted" };
   }
 
@@ -145,6 +146,7 @@ export function Dashboard() {
   const [showAbandonDialog, setShowAbandonDialog] = useState(false);
   const [trendPage, setTrendPage] = useState(0);
   const [showAllRuns, setShowAllRuns] = useState(false);
+  const [showAllDeepDive, setShowAllDeepDive] = useState(false);
 
   useEffect(() => {
     const fetchSessions = async () => {
@@ -231,20 +233,41 @@ export function Dashboard() {
     ? [...completedSessions].reverse()
     : recentList;
 
+  // Deep Dive sessions (custom, AI-generated problems) never enter
+  // recognition_in_progress — they start at recognition_complete
+  // directly. This list surfaces them separately from curated runs.
+  const deepDiveSessions = sessions
+    .filter(
+      (s) =>
+        s.source === "custom" && s.status !== "recognition_in_progress"
+    )
+    .slice()
+    .reverse();
+
+  const displayedDeepDive = showAllDeepDive
+  ? deepDiveSessions
+  : deepDiveSessions.slice(0, 4);  
+
+  // Only curated sessions count as an "unfinished diagnostic" banner —
+  // a fresh Deep Dive session (source: "custom") starts at
+  // recognition_complete by design and should not trigger the same
+  // abandon-confirmation flow as a genuinely mid-recognition curated run.
   const activeSession =
     sessions
       .slice()
       .reverse()
       .find(
         (s) =>
-          s.status === "recognition_in_progress" ||
-          s.status === "recognition_complete"
+          s.source === "curated" &&
+          (s.status === "recognition_in_progress" ||
+            s.status === "recognition_complete")
       ) || null;
 
   useEffect(() => {
     const idsToFetch = new Set<string>();
 
     displayedRuns.forEach((s) => idsToFetch.add(s.problem_id));
+    displayedDeepDive.forEach((s) => idsToFetch.add(s.problem_id));
 
     if (activeSession) idsToFetch.add(activeSession.problem_id);
 
@@ -287,8 +310,8 @@ export function Dashboard() {
         return next;
       });
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessions, showAllRuns]);
+   
+  }, [sessions, showAllRuns,showAllDeepDive]);
 
   const latestCompleted = completedSessions[completedSessions.length - 1];
   const previousCompleted = completedSessions[completedSessions.length - 2];
@@ -297,7 +320,8 @@ export function Dashboard() {
     ? problemInfo[latestCompleted.problem_id]?.difficulty
     : undefined;
 
-  const recognitionTarget = recognitionTargetForDifficulty(latestDifficulty);
+  const recognitionTarget =
+    recognitionTargetForDifficulty(latestDifficulty);
 
   let speedChangeText = "2+ sessions required for comparison";
   let isFaster = false;
@@ -328,7 +352,8 @@ export function Dashboard() {
 
   const totalByDifficulty: Record<string, number> = {};
   allProblems.forEach((p) => {
-    totalByDifficulty[p.difficulty] = (totalByDifficulty[p.difficulty] || 0) + 1;
+    totalByDifficulty[p.difficulty] =
+      (totalByDifficulty[p.difficulty] || 0) + 1;
   });
 
   const solvedProblemIds = new Set(
@@ -341,7 +366,8 @@ export function Dashboard() {
   solvedProblemIds.forEach((id) => {
     const difficulty = difficultyById.get(id);
     if (!difficulty) return;
-    solvedByDifficulty[difficulty] = (solvedByDifficulty[difficulty] || 0) + 1;
+    solvedByDifficulty[difficulty] =
+      (solvedByDifficulty[difficulty] || 0) + 1;
   });
 
   const totalSolved = solvedProblemIds.size;
@@ -379,12 +405,18 @@ export function Dashboard() {
   })();
 
   const boundaryDots =
-  gaugeSegments.length === 3
-    ? [
-        { angle: gaugeSegments[0].startDeg, color: gaugeSegments[0].fillColor },
-        { angle: gaugeSegments[1].startDeg, color: gaugeSegments[1].fillColor },
-      ]
-    : [];
+    gaugeSegments.length === 3
+      ? [
+          {
+            angle: gaugeSegments[0].startDeg,
+            color: gaugeSegments[0].fillColor,
+          },
+          {
+            angle: gaugeSegments[1].startDeg,
+            color: gaugeSegments[1].fillColor,
+          },
+        ]
+      : [];
 
   const handleStartNewPractice = (e: React.MouseEvent) => {
     if (activeSession) {
@@ -734,6 +766,93 @@ export function Dashboard() {
 
       <Card className="p-5 bg-panel-raised/40 border-border/70">
         <div className="flex items-center justify-between pb-3 border-b border-border/60">
+          <span className="text-[11px] font-mono uppercase tracking-widest text-muted flex items-center gap-1.5">
+            <Sparkles size={14} /> Deep Dive History ({deepDiveSessions.length})
+          </span>
+        </div>
+
+        {deepDiveSessions.length === 0 ? (
+          <div className="py-10 text-center text-xs text-muted/80">
+            Bring your own problem — paste a name and get full AI coaching, no timer, no blind guessing.
+          </div>
+        ) : (
+          <>
+            <div className="divide-y divide-border/40">
+              {displayedDeepDive.map((item) => {
+                const badge = outcomeBadge(item);
+                const info = problemInfo[item.problem_id];
+
+                return (
+                  <div
+                    className="flex items-center justify-between py-3 text-sm"
+                    key={item.id}
+                  >
+                    <div className="space-y-1.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-ink font-medium text-xs sm:text-sm">
+                          {info?.title || item.problem_id}
+                        </p>
+
+                        <span className="text-[9px] font-mono uppercase tracking-widest text-muted/70 bg-canvas/60 px-1.5 py-0.5 rounded border border-border/50">
+                          AI-generated
+                        </span>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-[10px] font-mono text-muted bg-canvas/60 px-2 py-0.5 rounded border border-border/50">
+                          Pattern: {info?.pattern || "Unknown"}
+                        </span>
+
+                        <span
+                          className={cn(
+                            "text-[10px] font-mono px-2 py-0.5 rounded border",
+                            info?.difficulty?.toLowerCase() === "easy" &&
+                              "text-emerald-400 bg-emerald-400/10 border-emerald-400/20",
+                            info?.difficulty?.toLowerCase() === "medium" &&
+                              "text-amber-400 bg-amber-400/10 border-amber-400/20",
+                            info?.difficulty?.toLowerCase() === "hard" &&
+                              "text-rose-400 bg-rose-400/10 border-rose-400/20",
+                            !["easy", "medium", "hard"].includes(
+                              info?.difficulty?.toLowerCase() || ""
+                            ) &&
+                              "text-muted bg-canvas/60 border-border/50"
+                          )}
+                        >
+                          Difficulty: {info?.difficulty || "Unknown"}
+                        </span>
+                      </div>
+
+                      <p
+                        className={cn(
+                          "text-[10px] font-mono mt-0.5",
+                          badge.tone === "success" && "text-accent",
+                          badge.tone === "error" && "text-danger",
+                          badge.tone === "warning" && "text-warning",
+                          badge.tone === "muted" && "text-muted"
+                        )}
+                      >
+                        {badge.label}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {deepDiveSessions.length > 4 && (
+              <button
+                type="button"
+                onClick={() => setShowAllDeepDive((value) => !value)}
+                className="mt-4 w-full border-t border-border/40 pt-4 text-center text-[10px] font-mono uppercase tracking-widest text-accent transition-colors hover:text-ink"
+              >
+                {showAllDeepDive ? "Show less ↑" : "View all →"}
+              </button>
+            )}
+          </>
+        )}
+      </Card>
+      <Card className="p-5 bg-panel-raised/40 border-border/70">
+        <div className="flex items-center justify-between pb-3 border-b border-border/60">
           <span className="text-[11px] font-mono uppercase tracking-widest text-muted">
             Problems Solved
           </span>
@@ -750,8 +869,8 @@ export function Dashboard() {
               difficulty === "Easy"
                 ? "text-emerald-400"
                 : difficulty === "Medium"
-                ? "text-amber-400"
-                : "text-rose-400";
+                  ? "text-amber-400"
+                  : "text-rose-400";
 
             return (
               <div
@@ -773,7 +892,9 @@ export function Dashboard() {
           <div className="mt-6 flex justify-center">
             <svg width="200" height="200" viewBox="0 0 180 180">
               {gaugeSegments.map((segment) => {
-                const sweepPx = (segment.sweepDeg / 360) * GAUGE_CIRCUMFERENCE;
+                const sweepPx =
+                  (segment.sweepDeg / 360) * GAUGE_CIRCUMFERENCE;
+
                 return (
                   <circle
                     key={`${segment.difficulty}-track`}
@@ -784,16 +905,24 @@ export function Dashboard() {
                     stroke={segment.trackColor}
                     strokeWidth="12"
                     strokeLinecap="round"
-                    strokeDasharray={`${sweepPx} ${GAUGE_CIRCUMFERENCE - sweepPx}`}
-                    transform={`rotate(${toSvgRotation(segment.startDeg)} ${GAUGE_CX} ${GAUGE_CY})`}
+                    strokeDasharray={`${sweepPx} ${
+                      GAUGE_CIRCUMFERENCE - sweepPx
+                    }`}
+                    transform={`rotate(${toSvgRotation(
+                      segment.startDeg
+                    )} ${GAUGE_CX} ${GAUGE_CY})`}
                     opacity="0.55"
                   />
                 );
               })}
 
               {gaugeSegments.map((segment) => {
-                const filledPx = (segment.filledSweepDeg / 360) * GAUGE_CIRCUMFERENCE;
+                const filledPx =
+                  (segment.filledSweepDeg / 360) *
+                  GAUGE_CIRCUMFERENCE;
+
                 if (filledPx <= 0) return null;
+
                 return (
                   <circle
                     key={`${segment.difficulty}-fill`}
@@ -804,24 +933,57 @@ export function Dashboard() {
                     stroke={segment.fillColor}
                     strokeWidth="12"
                     strokeLinecap="round"
-                    strokeDasharray={`${filledPx} ${GAUGE_CIRCUMFERENCE - filledPx}`}
-                    transform={`rotate(${toSvgRotation(segment.startDeg)} ${GAUGE_CX} ${GAUGE_CY})`}
+                    strokeDasharray={`${filledPx} ${
+                      GAUGE_CIRCUMFERENCE - filledPx
+                    }`}
+                    transform={`rotate(${toSvgRotation(
+                      segment.startDeg
+                    )} ${GAUGE_CX} ${GAUGE_CY})`}
                   />
                 );
               })}
 
               {boundaryDots.map((dot, idx) => {
                 const point = polarPoint(dot.angle);
-                return <circle key={idx} cx={point.x} cy={point.y} r="6" fill={dot.color} />;
+
+                return (
+                  <circle
+                    key={idx}
+                    cx={point.x}
+                    cy={point.y}
+                    r="6"
+                    fill={dot.color}
+                  />
+                );
               })}
 
-              <text x={GAUGE_CX} y={GAUGE_CY - 6} textAnchor="middle" className="fill-ink font-mono font-bold" fontSize="30">
+              <text
+                x={GAUGE_CX}
+                y={GAUGE_CY - 6}
+                textAnchor="middle"
+                className="fill-ink font-mono font-bold"
+                fontSize="30"
+              >
                 {totalSolved}
               </text>
-              <text x={GAUGE_CX} y={GAUGE_CY + 16} textAnchor="middle" className="fill-muted font-mono" fontSize="13">
+
+              <text
+                x={GAUGE_CX}
+                y={GAUGE_CY + 16}
+                textAnchor="middle"
+                className="fill-muted font-mono"
+                fontSize="13"
+              >
                 /{totalProblems}
               </text>
-              <text x={GAUGE_CX} y={GAUGE_CY + 34} textAnchor="middle" className="fill-muted font-mono uppercase tracking-widest" fontSize="9">
+
+              <text
+                x={GAUGE_CX}
+                y={GAUGE_CY + 34}
+                textAnchor="middle"
+                className="fill-muted font-mono uppercase tracking-widest"
+                fontSize="9"
+              >
                 Solved
               </text>
             </svg>
@@ -835,9 +997,12 @@ export function Dashboard() {
             <span className="text-[10px] font-mono uppercase tracking-widest text-accent font-bold">
               Practice Engine
             </span>
-            <h3 className="text-base font-bold text-ink">Blind Diagnostic</h3>
+            <h3 className="text-base font-bold text-ink">
+              Blind Diagnostic
+            </h3>
             <p className="text-xs leading-relaxed text-muted">
-              Start a timed problem without titles or tags to force pure intuition.
+              Start a timed problem without titles or tags to force pure
+              intuition.
             </p>
           </div>
 

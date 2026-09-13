@@ -20,6 +20,10 @@ type SessionDetail = {
   status: string;
 };
 
+type CustomProblem = {
+  id: string;
+};
+
 const categories = [
   "Arrays & Strings",
   "Linked Lists & Stacks",
@@ -37,6 +41,10 @@ export function Problems() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [starting, setStarting] = useState(false);
+
+  const [deepDiveName, setDeepDiveName] = useState("");
+  const [deepDiveLoading, setDeepDiveLoading] = useState(false);
+  const [deepDiveError, setDeepDiveError] = useState("");
 
   useEffect(() => {
     const fetchProblems = async () => {
@@ -80,6 +88,35 @@ export function Problems() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to start session.");
       setStarting(false);
+    }
+  };
+
+  const handleStartDeepDive = async () => {
+    if (deepDiveName.trim().length < 2) return;
+
+    setDeepDiveLoading(true);
+    setDeepDiveError("");
+
+    try {
+      // Uses the user's own configured Gemini key — same BYOK path as
+      // approach evaluation. The backend returns a clear 400 if no
+      // key is configured yet.
+      const problem = await apiFetch<CustomProblem>("/problems/custom", {
+        method: "POST",
+        body: JSON.stringify({ name: deepDiveName.trim() }),
+      });
+
+      const session = await apiFetch<SessionDetail>("/sessions", {
+        method: "POST",
+        body: JSON.stringify({ problem_id: problem.id }),
+      });
+
+      router.push(`/session/${session.id}`);
+    } catch (err) {
+      setDeepDiveError(
+        err instanceof Error ? err.message : "Failed to generate this problem."
+      );
+      setDeepDiveLoading(false);
     }
   };
 
@@ -188,6 +225,43 @@ export function Problems() {
             </div>
           </Card>
         </div>
+
+        <Card className="relative w-full overflow-hidden border-accent/20 bg-panel-raised/40 p-8 shadow-lg">
+          <div className="flex items-center gap-2.5 text-sm font-bold uppercase tracking-wider text-accent">
+            <Sparkles size={18} /> Deep Dive Mode
+          </div>
+          <p className="mt-2 text-sm text-muted">
+            Bring your own problem. Full statement shown immediately, no timer, no blind
+            guessing — straight to writing your approach with real AI feedback and hints
+            if you get stuck.
+          </p>
+
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+            <input
+              value={deepDiveName}
+              onChange={(e) => setDeepDiveName(e.target.value)}
+              placeholder="e.g. Two Sum, or describe a problem you're working on"
+              className="flex-1 rounded-lg border border-border/80 bg-canvas px-4 py-3 text-sm text-ink placeholder:text-muted/60 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+            <Button
+              onClick={handleStartDeepDive}
+              disabled={deepDiveLoading || deepDiveName.trim().length < 2}
+              className="gap-2 whitespace-nowrap px-6"
+            >
+              {deepDiveLoading ? "Generating…" : "Start Deep Dive"}
+            </Button>
+          </div>
+
+          {deepDiveError && (
+            <p role="alert" className="mt-3 text-sm text-danger">
+              {deepDiveError}
+            </p>
+          )}
+
+          <p className="mt-3 text-[11px] text-muted/70 font-mono">
+            Uses your configured Gemini API key — the same one used for approach evaluation.
+          </p>
+        </Card>
       </div>
     </div>
   );

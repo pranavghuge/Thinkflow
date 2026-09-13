@@ -86,6 +86,13 @@ class Problem(Base):
         onupdate=func.now(),
         nullable=False,
     )
+    source = Column(String(20), nullable=False, server_default="curated", index=True)
+    created_by_user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
 
 class ProblemHint(Base):
     __tablename__ = "problem_hints"

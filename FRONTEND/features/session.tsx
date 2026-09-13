@@ -29,6 +29,8 @@ type SessionDetail = {
   current_hint_level: number;
   started_at: string;
   ended_at: string | null;
+  overall_verdict: "strong" | "needs_improvement" | "incorrect" | null;
+  source: "curated" | "custom";
 };
 
 type ApproachFeedback = {
@@ -188,15 +190,33 @@ export function PracticeSession({ sessionId }: { sessionId: string }) {
 
   const requestHint = async () => {
   if (!session) return;
+
   setError("");
+
   try {
-    const updated = await apiFetch<HintDetail>(`/sessions/${session.id}/hints`, {
-      method: "POST",
-    });
-    setSession(updated);
+    const updated = await apiFetch<HintDetail>(
+      `/sessions/${session.id}/hints`,
+      {
+        method: "POST",
+      }
+    );
+
+    setSession((prev) =>
+      prev
+        ? {
+            ...prev,
+            current_hint_level: updated.current_hint_level,
+          }
+        : prev
+    );
+
     setCurrentHintText(updated.hint_text);
   } catch (err) {
-    setError(err instanceof Error ? err.message : "No further hints available.");
+    setError(
+      err instanceof Error
+        ? err.message
+        : "No further hints available."
+    );
   }
 };
 
@@ -255,7 +275,9 @@ export function PracticeSession({ sessionId }: { sessionId: string }) {
         <Confirmation session={session} onContinue={() => setUiPhase("approach")} />
       )}
 
-      {uiPhase === "approach" && <Approach attemptCount={attemptCount} onSubmit={submitApproach} />}
+      {uiPhase === "approach" && problem && (
+  <Approach problem={problem} source={session.source} attemptCount={attemptCount} onSubmit={submitApproach} />
+)}
 
       {uiPhase === "rubric" && lastEvaluation && (
   <Rubric
@@ -423,9 +445,13 @@ function Confirmation({ session, onContinue }: { session: SessionDetail; onConti
 }
 
 function Approach({
+  problem,
+  source,
   attemptCount,
   onSubmit,
 }: {
+  problem: ProblemDetail;
+  source: "curated" | "custom";
   attemptCount: number;
   onSubmit: (content: string) => void;
 }) {
@@ -437,6 +463,65 @@ function Approach({
 
   return (
     <Card className="p-6">
+      {source === "custom" && (
+        <div className="mb-6 space-y-4 border-b border-border pb-6">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[.14em] text-muted">Problem statement</p>
+            <h2 className="mt-2 text-2xl font-bold text-ink">{problem.title}</h2>
+            <p className="mt-3 leading-relaxed text-muted text-sm">{problem.statement}</p>
+          </div>
+
+          {problem.examples.length > 0 && (
+            <div className="space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-[.14em] text-muted">Examples</p>
+              {problem.examples.map((ex, idx) => (
+                <div key={idx} className="rounded-md border border-border bg-panel-raised p-3 text-xs font-mono space-y-1">
+                  <div><span className="text-accent font-semibold">Input:</span> <span className="text-ink">{ex.input}</span></div>
+                  <div><span className="text-accent font-semibold">Output:</span> <span className="text-ink">{ex.output}</span></div>
+                  {ex.explanation && (
+                    <div className="mt-2 pt-2 border-t border-border/60 text-muted font-sans italic">
+                      {ex.explanation}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {problem.constraints.length > 0 && (
+            <div>
+              <p className="font-semibold text-muted uppercase tracking-[.14em] mb-1 text-xs">Constraints</p>
+              <ul className="list-disc list-inside text-muted space-y-0.5 font-mono text-xs">
+                {problem.constraints.map((item, i) => (
+                  <li key={i}>{item}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+      {(problem.time_complexity || problem.space_complexity) && (
+  <div>
+    <p className="font-semibold text-muted uppercase tracking-[.14em] mb-1 text-xs">
+      Expected Complexity
+    </p>
+
+    <div className="text-muted space-y-1 font-mono text-xs">
+      {problem.time_complexity && (
+        <div>
+          Time: <span className="text-warning">{problem.time_complexity}</span>
+        </div>
+      )}
+
+      {problem.space_complexity && (
+        <div>
+          Space: <span className="text-warning">{problem.space_complexity}</span>
+        </div>
+      )}
+    </div>
+  </div>
+)}
+
       <div className="mb-4 flex items-center justify-between">
         <span className="text-xs font-mono uppercase tracking-[.14em] text-muted">
           Attempt {attemptCount + 1} of {MAX_APPROACH_ATTEMPTS}
