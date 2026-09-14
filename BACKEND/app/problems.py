@@ -1,6 +1,9 @@
 import uuid
 from typing import Literal
 
+import redis
+from .redis_client import get_redis_client
+from .rate_limit import enforce_gemini_rate_limit
 from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.orm import Session as DBSession
 from google import genai
@@ -71,6 +74,7 @@ def create_custom_problem(
     data: CustomProblemRequest,
     db: DBSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    redis_client: redis.Redis = Depends(get_redis_client),
 ):
     # BYOK: generation uses the same per-user key as approach evaluation.
     # No shared/server key exists as a fallback.
@@ -88,6 +92,8 @@ def create_custom_problem(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No Gemini API key configured. Add one in Settings before generating a custom problem.",
         )
+
+    enforce_gemini_rate_limit(current_user.id, redis_client)
 
     decrypted_key = decrypt_api_key(user_api_key.encrypted_key)
 

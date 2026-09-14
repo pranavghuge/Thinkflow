@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     api_key_encryption_key: str
     redis_host: str = "localhost"
     redis_port: int = 6379
+    gemini_rate_limit_max_requests: int = 20
+    gemini_rate_limit_window_seconds: int = 600
     environment: str = "development"
     cors_origins: str = "http://localhost:3000"
 

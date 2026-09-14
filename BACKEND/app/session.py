@@ -1,6 +1,8 @@
 import uuid
 from datetime import datetime, timezone
-
+import redis
+from .redis_client import get_redis_client
+from .rate_limit import enforce_gemini_rate_limit
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session as DBSession
 from google import genai
@@ -242,6 +244,7 @@ def submit_approach(
     data: ApproachRequest,
     session: SessionModel = Depends(get_owned_session),
     db: DBSession = Depends(get_db),
+    redis_client: redis.Redis = Depends(get_redis_client),
 ):
     if session.status not in ("recognition_complete", "approach_submitted"):
         raise HTTPException(
@@ -289,6 +292,8 @@ def submit_approach(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No Gemini API key configured. Add one in Settings before submitting an approach.",
         )
+
+    enforce_gemini_rate_limit(session.user_id, redis_client)
 
     decrypted_key = decrypt_api_key(user_api_key.encrypted_key)
 
@@ -372,6 +377,7 @@ def submit_approach(
 def request_hint(
     session: SessionModel = Depends(get_owned_session),
     db: DBSession = Depends(get_db),
+    redis_client: redis.Redis = Depends(get_redis_client),
 ):
     if session.current_hint_level >= MAX_HINT_LEVEL:
         raise HTTPException(
@@ -427,6 +433,8 @@ def request_hint(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="No Gemini API key configured. Add one in Settings before requesting a hint.",
             )
+
+        enforce_gemini_rate_limit(session.user_id, redis_client)
 
         decrypted_key = decrypt_api_key(user_api_key.encrypted_key)
 
