@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
+import redis
 
 from .database import get_db
+from .redis_client import get_redis_client
 from .models import User
 from .schemas import (
     SignupRequest,
@@ -16,6 +18,7 @@ from .security import (
     create_refresh_token,
     decode_access_token,
     decode_refresh_token,
+    revoke_refresh_token,
     hash_password,
     verify_password,
 )
@@ -31,7 +34,6 @@ def signup(
     data: SignupRequest,
     db: Session = Depends(get_db)
 ):
-    # Check whether email is already registered
     existing_user = (
         db.query(User)
         .filter(User.email == data.email)
@@ -44,16 +46,13 @@ def signup(
             detail="Email already registered"
         )
 
-    # Hash password before storing it
     hashed_password = hash_password(data.password)
 
-    # Create user
     user = User(
         email=data.email,
         password_hash=hashed_password
     )
 
-    # Save user to database
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -66,14 +65,12 @@ def login(
     data: LoginRequest,
     db: Session = Depends(get_db)
 ):
-    # Find user by email
     user = (
         db.query(User)
         .filter(User.email == data.email)
         .first()
     )
 
-   
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -81,7 +78,6 @@ def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Verify plaintext password against Argon2id hash
     if not verify_password(data.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -89,10 +85,7 @@ def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    
     access_token = create_access_token(user.id)
-
-    
     refresh_token = create_refresh_token(user.id)
 
     return {
@@ -105,10 +98,11 @@ def login(
 @router.post("/refresh", response_model=TokenResponse)
 def refresh(
     data: RefreshRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    redis_client: redis.Redis = Depends(get_redis_client),
 ):
     try:
-        user_id = decode_refresh_token(data.refresh_token)
+        user_id = decode_refresh_token(data.refresh_token, redis_client)
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -125,12 +119,24 @@ def refresh(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    
+    # Rotation: the old refresh token is revoked the instant a new one
+    # is issued, so it cannot be reused even if intercepted in transit.
+    revoke_refresh_token(data.refresh_token, redis_client)
+
     return {
         "access_token": create_access_token(user.id),
         "refresh_token": create_refresh_token(user.id),
         "token_type": "bearer",
     }
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+def logout(
+    data: RefreshRequest,
+    redis_client: redis.Redis = Depends(get_redis_client),
+):
+    revoke_refresh_token(data.refresh_token, redis_client)
+
 
 def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),

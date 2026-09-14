@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 30
     api_key_encryption_key: str
+    redis_host: str = "localhost"
+    redis_port: int = 6379
     environment: str = "development"
     cors_origins: str = "http://localhost:3000"
 

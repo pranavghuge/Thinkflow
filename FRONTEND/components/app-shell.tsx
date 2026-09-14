@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { BookOpen, Gauge, LogOut, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getAccessToken, clearTokens } from "@/lib/api";
+import { getAccessToken, clearTokens, getRefreshToken, apiFetch } from "@/lib/api";
 
 const items = [
   { href: "/dashboard", label: "Dashboard", icon: Gauge },
@@ -27,7 +27,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setAllowed(true);
   }, [pathname, router]);
 
-  const logout = () => {
+  const logout = async () => {
+    const refreshToken = getRefreshToken();
+
+    if (refreshToken) {
+      try {
+        await apiFetch("/auth/logout", {
+          method: "POST",
+          body: JSON.stringify({ refresh_token: refreshToken }),
+        });
+      } catch {
+        // Proceed with local logout even if server-side revocation fails.
+      }
+    }
+
     clearTokens();
     router.push("/login");
   };
