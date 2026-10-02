@@ -1,0 +1,56 @@
+# Run the whole app with:  docker compose up --build
+# Frontend: http://localhost:3000   API docs: http://localhost:8000/docs
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: thinkflow
+      POSTGRES_PASSWORD: thinkflow
+      POSTGRES_DB: thinkflow
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U thinkflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./BACKEND
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://thinkflow:thinkflow@db:5432/thinkflow
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      ENVIRONMENT: development
+      CORS_ORIGINS: http://localhost:3000
+      # Demo-only secrets for running locally. Never reuse them in production.
+      JWT_SECRET_KEY: CZfzgZeDkfeaMaydnaZaNEMrzv4G3h5O0dqGIxXqIbxgfqW1qXF5bnS33CbzSmiU
+      API_KEY_ENCRYPTION_KEY: 6-mb_3edlgiv4zZBjnjkRqYHwfGKXC-qaA4ozPc-JO8=
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: ./FRONTEND
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+
+volumes:
+  pgdata:

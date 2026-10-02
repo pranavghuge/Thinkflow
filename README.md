@@ -8,6 +8,10 @@ ThinkFlow measures something harder to fake: whether you could have recognized i
 `FastAPI` · `PostgreSQL` · `Next.js` · `TypeScript` · `Redis` · `Google Gemini` · `JWT`
 
 ---
+## Live Demo
+
+🚀 **Try ThinkFlow:** https://thinkflow-learn.vercel.app/
+---
 
 ## Table of Contents
 
@@ -260,6 +264,13 @@ npm run dev
 
 Visit `http://localhost:3000`, sign up, add a Gemini key under **Settings**, and start a session.
 
+### Run Locally with Docker
+
+```bash
+git clone https://github.com/pranavghuge/Thinkflow.git
+cd Thinkflow/backend
+docker compose up --build
+```
 ---
 
 ## Environment Variables

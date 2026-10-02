@@ -358,7 +358,7 @@ export function Dashboard() {
 
   const solvedProblemIds = new Set(
     sessions
-      .filter((s) => s.overall_verdict === "strong")
+      .filter((s) => s.overall_verdict === "strong" && s.source === "curated")
       .map((s) => s.problem_id)
   );
 
